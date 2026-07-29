@@ -1,32 +1,49 @@
 # perfect-bloom
 
-A plant care PWA. Photograph a plant, get it identified along with its care needs
-and pet toxicity, add it to your collection, and get a daily reminder to water
-whatever is due.
+A plant care app. Photograph a plant, find out what it is and how to keep it
+alive, add it to your collection, and get a reminder at noon to water whatever is
+due.
 
-Python-only — FastAPI + Jinja2 + HTMX, installed to the home screen for camera
-access and Web Push. No separate mobile codebase, no build step.
+Native iOS and Android via **Expo**, backed by a **FastAPI** JSON API.
+
+```
+api/       FastAPI + SQLAlchemy + Alembic (Python)
+mobile/    Expo app (TypeScript)
+```
 
 See [CLAUDE.md](CLAUDE.md) for the architecture and the domain rules that make it
 correct.
 
-## Setup
+## API
 
 ```bash
+cd api
 uv sync
-cp .env.example .env          # then fill in SECRET_KEY
 uv run alembic upgrade head
 uv run uvicorn app.main:app --reload
 ```
 
-Runs at http://127.0.0.1:8000 with `IDENTIFY_PROVIDER=fake`, so no API keys are
-needed for local development.
-
-## Commands
+Serves on http://127.0.0.1:8000 with `IDENTIFY_PROVIDER=fake`, so no third-party
+API keys are needed for local development.
 
 ```bash
 uv run pytest
 uv run ruff check --fix . && uv run ruff format .
-uv run alembic revision --autogenerate -m "msg"
-uv run alembic upgrade head
 ```
+
+### Endpoints
+
+| Method | Path | Auth |
+|---|---|---|
+| `POST` | `/api/v1/auth/signup` | — |
+| `POST` | `/api/v1/auth/login` | — |
+| `POST` | `/api/v1/auth/logout` | bearer |
+| `GET` | `/api/v1/me` | bearer |
+| `POST` | `/api/v1/identify` | bearer |
+| `GET` | `/healthz` | — |
+
+Interactive docs at `/docs` while the server is running.
+
+## App
+
+Not built yet — that's the next slice.

@@ -8,56 +8,66 @@ A plant care app. Users photograph a plant, get it identified along with its car
 needs, add it to their collection, and receive a daily reminder to water whatever
 is due. A later phase diagnoses unhealthy plants from a photo.
 
-Ships as a **Python-only PWA** — no separate mobile codebase. Installed to the
-home screen, it gets camera access and Web Push, which is the whole reason for
-this architecture.
+Ships as a **native iOS and Android app built with Expo**, backed by a **Python
+JSON API**. The app is submitted to both stores via EAS Build, which is why it is
+a real native binary rather than a wrapped website.
 
 ## Stack (decided — do not substitute)
 
 | Layer | Choice |
 |---|---|
-| Language | Python 3.12+ |
-| Web | FastAPI |
-| Frontend | Jinja2 templates + HTMX + vanilla CSS. No React, no build step. |
+| App | Expo (React Native) + TypeScript, expo-router |
+| App state | React Query for server state; no server data mirrored into `useState` |
+| Secure storage | `expo-secure-store` for the auth token |
+| Reminders | `expo-notifications`, scheduled **on-device** |
+| API | Python 3.12+, FastAPI, JSON only |
 | DB | SQLite in dev, Postgres in prod. SQLAlchemy 2.0 (async) + Alembic. |
-| Scheduler | APScheduler |
-| Push | Web Push / VAPID via `pywebpush` |
-| Package mgmt | `uv` |
-| Tests | pytest + pytest-asyncio |
-| Lint/format | ruff |
+| Package mgmt | `uv` for the API, `npm` for the app |
+| Tests | pytest + pytest-asyncio (API) |
+| Lint/format | ruff (API), eslint + tsc (app) |
 
 Alembic is used from the first migration even though dev is SQLite — switching to
 Postgres later must not require hand-written DDL.
 
+## Layout
+
+```
+api/                 # FastAPI JSON API (Python)
+  app/
+    main.py          # app, lifespan, router wiring
+    config.py        # pydantic-settings; all env vars declared here
+    deps.py          # bearer-token auth dependencies
+    schemas.py       # pydantic request/response models
+    models/          # SQLAlchemy models
+    routes/          # thin HTTP handlers, JSON only
+    services/
+      identify/      # plant ID providers (see below)
+      care/          # care-data lookup + species matching
+      schedule/      # due-date computation
+      accounts.py    # signup / authentication
+      tokens.py      # bearer token issue / resolve / revoke
+      images/        # validation, EXIF stripping, storage
+    db.py
+  tests/
+  migrations/
+mobile/              # Expo app (TypeScript)
+```
+
 ## Commands
 
 ```bash
-uv sync                          # install
+# API — run from api/
+uv sync
 uv run uvicorn app.main:app --reload
 uv run pytest
 uv run ruff check --fix . && uv run ruff format .
 uv run alembic revision --autogenerate -m "msg"
 uv run alembic upgrade head
-```
 
-## Layout
-
-```
-app/
-  main.py            # FastAPI app, startup/shutdown, scheduler wiring
-  config.py          # pydantic-settings; all env vars declared here
-  models/            # SQLAlchemy models
-  routes/            # HTTP handlers, return HTML partials for HTMX
-  templates/         # Jinja2; partials/ holds HTMX fragments
-  static/            # manifest.json, sw.js, css
-  services/
-    identify/        # plant ID providers (see below)
-    care/            # care-data lookup + species matching
-    schedule/        # due-date computation
-    notify/          # push subscription + delivery
-  db.py
-tests/
-migrations/
+# App — run from mobile/
+npm install
+npx expo start
+npx tsc --noEmit
 ```
 
 ## Core domain rules
@@ -84,16 +94,18 @@ species' absence in the data. When toxicity is unknown, display "unknown" — no
 display. A wrong "safe for cats" on a lily is the one bug in this app that kills
 something. Treat it accordingly.
 
-**Timezones.** Reminders fire at 12:00 *local* time. Store an IANA timezone
-string per user, persist all timestamps as UTC, and convert only at the schedule
-boundary. Never use server-local time. A user who moves timezones should get
-noon in their new one.
+**Timezones.** Reminders fire at 12:00 *local* time, scheduled on the device,
+which already knows its own zone. The API persists every timestamp as UTC-aware
+and never uses server-local time — see `UtcDateTime` in `models/base.py`, which
+exists because SQLite hands back naive datetimes and Postgres does not. The IANA
+zone is still stored per user so server-side push stays possible later.
 
 **Identification is behind an interface.** All ID providers implement a single
-Protocol in `services/identify/base.py`:
+Protocol in `api/app/services/identify/base.py`:
 
 ```python
 class PlantIdentifier(Protocol):
+    attribution: Attribution | None
     async def identify(self, images: list[bytes]) -> list[Candidate]: ...
 ```
 
@@ -112,8 +124,10 @@ scores. Returns taxonomy *only*: no care data, no toxicity, no diagnosis.
   commercial use beyond 500/day requires a paid contract, and the Pro plan starts
   at €1,000. One free account per person or legal entity, and multiple free
   accounts from one IP are prohibited.
-- Free use requires displaying PlantNet's attribution line and logo. Keep this in
-  the identification result template permanently, not as a TODO.
+- Free use requires displaying PlantNet's attribution line and logo. The API
+  returns it on every identify response; **the app must render it wherever
+  results appear.** Permanent, not a TODO. The official logo asset is still
+  missing — `Attribution.logo_path` is null until it is added.
 - **Before any public launch**, this must be revisited: either a Pro contract or a
   swap to Kindwise (plant.id), which is ~€0.05/credit with 100 free credits and
   covers health assessment in the same API.
@@ -138,27 +152,50 @@ cleanly. Approach:
    present it as looked-up data.
 
 Every outbound API call goes through a service module with a timeout, a retry
-policy, and a cached fallback. A dead third party must degrade the page, not 500 it.
+policy, and a cached fallback. A dead third party must degrade to a message the
+app can show, not a 500.
 
 ## Conventions
 
+### API
+
 - Async throughout — async SQLAlchemy, `httpx.AsyncClient`. No sync DB calls in
   request handlers.
-- Routes are thin. Business logic lives in `services/`, and that's what tests
-  target. Never test by asserting on HTML strings.
+- Routes are thin and return JSON under `/api/v1`. Business logic lives in
+  `services/`, and that's what tests target.
+- Auth is a bearer token in `Authorization: Bearer <token>`. Tokens are random,
+  stored only as a SHA-256 digest, and revocable. **Digest, not argon2** — the
+  token is already high-entropy and a slow hash would run on every request.
+  Argon2 is for passwords only.
+- Never trust a client-supplied user id. Every authenticated route resolves the
+  user from the token.
 - Secrets only via environment, declared in `config.py`. No API keys in code,
-  templates, tests, or fixtures. `.env` stays gitignored.
-- HTMX endpoints return HTML partials from `templates/partials/`, not JSON.
+  tests, or fixtures. `.env` stays gitignored.
 - **Strip EXIF before storing any uploaded image.** Phone photos carry GPS, and
-  this is a public app storing pictures taken inside people's homes.
-- Images: local disk in dev behind a storage interface, S3-compatible later. Never
-  write file paths directly in handlers.
-- Validate uploads on content type and size before they reach any provider.
+  this app stores pictures taken inside people's homes. The app may also request
+  EXIF-free images from the picker, but the server strip is unconditional.
+- Images: local disk in dev behind a storage interface, S3-compatible later.
+  Never write file paths directly in handlers.
+- Validate uploads on declared size, then content type and magic bytes, before
+  they reach any provider.
+- Migrations must never import app code. Render custom column types as plain SQL
+  types (see `render_item` in `migrations/env.py`) so old migrations keep running.
+
+### App
+
+- Server state lives in React Query, never mirrored into component `useState`.
+  Mutations update the cache; optimistic updates live in `useMutation` with a
+  rollback, or are not optimistic at all.
+- The auth token lives in `expo-secure-store`, never `AsyncStorage`.
+- Reminders are scheduled locally and rescheduled after every watering and on app
+  open, so a stale schedule can't survive.
+- One failure-surfacing convention app-wide. No `Alert.alert()` scattered ad hoc.
 
 ## Phasing
 
 **V1 (current):** photo → identify → care info + toxicity → save to collection →
-watering schedule → noon push → check off watered → completion animation.
+watering schedule → noon local notification → check off watered → completion
+animation.
 
 **V2 (not yet — do not build ahead):** photo of a struggling plant → diagnosis
 (yellowing, dry soil, curling) with a fix. Planned as Claude vision rather than a
@@ -167,19 +204,26 @@ watering log as context. Diagnosis output is advice, and must be framed as such 
 never as certainty.
 
 **Explicitly out of scope for now:** social features, plant marketplace,
-multi-user shared collections, native app wrappers, offline-first sync.
+multi-user shared collections, a web version, offline-first sync.
 
 ## Decisions made
 
-- **Auth:** session cookie + password. Argon2 hashing via `argon2-cffi`, signed
-  cookie via Starlette `SessionMiddleware`. Timezone captured at signup.
+- **Repo:** monorepo. `api/` and `mobile/` change together on one branch.
+- **Auth:** email + password, argon2 hashed, exchanged for an opaque bearer token
+  with a 90-day expiry. Opaque rather than JWT so logout can actually revoke.
+- **Reminders are on-device local notifications**, not server push. This removes
+  APScheduler, Web Push, VAPID keys, and any push-subscription table. Revisit
+  only if a phone that hasn't opened the app in weeks must still be nudged.
 - **Plant deletion is a soft delete** (`plants.deleted_at`). `watering_events`
   never cascades — the log outlives the plant, per the domain rule above.
+- **Was a PWA until 2026-07-29.** Rebuilt as Expo because a PWA cannot be
+  submitted to the App Store. The Jinja/HTMX layer was deleted; the service and
+  data layers survived unchanged, which is why they were built behind interfaces.
 
 ## Open decisions
 
 Ask before assuming; don't unilaterally resolve these.
 
 - Whether unidentified/manual plants are a first-class flow or an edge case.
-- Notification granularity: one digest at noon vs. per-plant pushes.
+- Notification granularity: one digest at noon vs. per-plant notifications.
 - Whether Perenual data is bulk-cached locally or fetched lazily per species.
