@@ -46,4 +46,15 @@ Interactive docs at `/docs` while the server is running.
 
 ## App
 
-Not built yet — that's the next slice.
+```bash
+cd mobile
+npm install
+npx expo start          # then press "i" for iOS or "a" for Android
+npm run typecheck
+```
+
+The app finds the API automatically: it reuses the Expo dev server's host, so a
+simulator and a physical phone on the same network both work without editing
+anything. Override with `EXPO_PUBLIC_API_URL` if the API runs elsewhere.
+
+Start the API first — the app talks to it on port 8000.
