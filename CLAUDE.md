@@ -236,6 +236,17 @@ multi-user shared collections, a web version, offline-first sync.
   needs only a name *or* a nickname; species and interval are both optional.
 - **The watering interval is captured at save time but optional.** A plant with
   a null interval is valid and simply has no schedule yet.
+- **Due dates are local calendar dates, not instants.** Reminders fire at noon
+  local, so a plant watered at 11pm must be due on the day the reminder lands.
+  `compute_schedule` converts to the user's zone, adds `interval_days` as
+  calendar days, and compares dates — so a 14-day interval across a DST change
+  is still 14 days. Nothing is persisted; it is recomputed on every read.
+- **A plant with no watering logged anchors on `created_at`**, labelled
+  `anchor: "created"` so the UI can say "not watered yet". That is a real
+  timestamp, not an invented schedule.
+- **Known gap: a watering cannot be undone.** The log is append-only by rule, so
+  a mis-tap is permanent and skews the history V2 depends on. If this needs
+  fixing, the honest option is a `voided_at` column rather than a delete.
 - **Known gap: `/media` is a public unauthenticated mount.** Keys are uuid4, so
   photos are not enumerable, but there is no ownership check on read. Fix this
   when storage moves to S3 by issuing signed URLs — these are pictures taken

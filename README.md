@@ -43,6 +43,7 @@ uv run ruff check --fix . && uv run ruff format .
 | `GET` | `/api/v1/care?scientific_name=…` | bearer |
 | `GET` `POST` | `/api/v1/plants` | bearer |
 | `GET` `PATCH` `DELETE` | `/api/v1/plants/{id}` | bearer |
+| `GET` `POST` | `/api/v1/plants/{id}/waterings` | bearer |
 | `GET` | `/healthz` | — |
 
 Interactive docs at `/docs` while the server is running.
