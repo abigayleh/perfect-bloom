@@ -20,8 +20,13 @@ class Storage(Protocol):
     async def delete(self, key: str) -> None: ...
 
 
+def is_safe_key(key: str) -> bool:
+    """Keys are opaque filenames. Anything path-like is a traversal attempt."""
+    return bool(key) and "/" not in key and "\\" not in key and ".." not in key
+
+
 def _check_key(key: str) -> None:
-    if not key or "/" in key or "\\" in key or ".." in key:
+    if not is_safe_key(key):
         raise ValueError(f"unsafe storage key: {key!r}")
 
 

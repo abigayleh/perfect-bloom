@@ -57,10 +57,11 @@ async def identify(user: RequiredUser, images: list[UploadFile]) -> IdentifyResp
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
     storage = get_storage()
-    image_url = storage.url(await storage.save(processed[0]))
+    image_key = await storage.save(processed[0])
 
     return IdentifyResponse(
         candidates=[_candidate_out(c) for c in candidates],
-        image_url=image_url,
+        image_url=storage.url(image_key),
+        image_key=image_key,
         attribution=_attribution_out(identifier.attribution),
     )

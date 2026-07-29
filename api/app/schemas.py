@@ -1,3 +1,4 @@
+from datetime import datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -45,7 +46,38 @@ class CandidateOut(BaseModel):
 class IdentifyResponse(BaseModel):
     candidates: list[CandidateOut]
     image_url: str
+    # Opaque storage key. The client hands this back when saving the plant so the
+    # photo carries over without the client ever constructing a path.
+    image_key: str
     attribution: AttributionOut | None = None
+
+
+class PlantCreate(BaseModel):
+    scientific_name: str = ""
+    nickname: str | None = None
+    common_name: str | None = None
+    image_key: str | None = None
+    interval_days: int | None = None
+
+
+class PlantUpdate(BaseModel):
+    nickname: str | None = None
+    interval_days: int | None = None
+    clear_interval: bool = False
+
+
+class PlantOut(BaseModel):
+    id: int
+    nickname: str | None
+    scientific_name: str
+    common_name: str | None
+    image_url: str | None
+    interval_days: int | None
+    created_at: datetime
+
+    @property
+    def display_name(self) -> str:
+        return self.nickname or self.common_name or self.scientific_name
 
 
 class CareResponse(BaseModel):

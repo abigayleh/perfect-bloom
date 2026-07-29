@@ -4,7 +4,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from app.config import get_settings
-from app.routes import auth, care, identify, pages
+from app.routes import auth, care, identify, pages, plants
 from app.services.http import aclose_client
 
 settings = get_settings()
@@ -26,3 +26,4 @@ app.include_router(pages.router)
 app.include_router(auth.router)
 app.include_router(identify.router)
 app.include_router(care.router)
+app.include_router(plants.router)
