@@ -1,0 +1,48 @@
+from functools import lru_cache
+from pathlib import Path
+
+from pydantic import model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
+DEV_SECRET_KEY = "dev-only-insecure-key-do-not-use-in-production"
+
+
+class Settings(BaseSettings):
+    """Every environment variable the app reads is declared here and nowhere else."""
+
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+
+    env: str = "dev"
+    secret_key: str = DEV_SECRET_KEY
+    database_url: str = "sqlite+aiosqlite:///./perfect_bloom.db"
+
+    identify_provider: str = "fake"
+    plantnet_api_key: str = ""
+    plantnet_base_url: str = "https://my-api.plantnet.org/v2"
+    perenual_api_key: str = ""
+    perenual_base_url: str = "https://perenual.com/api/v2"
+
+    upload_dir: Path = Path("var/uploads")
+    max_upload_bytes: int = 8 * 1024 * 1024
+    max_upload_images: int = 5
+    max_image_dimension: int = 2048
+
+    http_timeout_seconds: float = 10.0
+    http_max_retries: int = 2
+
+    @property
+    def is_dev(self) -> bool:
+        return self.env == "dev"
+
+    @model_validator(mode="after")
+    def check_production_secrets(self) -> "Settings":
+        if not self.is_dev and self.secret_key == DEV_SECRET_KEY:
+            raise ValueError("SECRET_KEY must be set outside dev")
+        if self.identify_provider == "plantnet" and not self.plantnet_api_key:
+            raise ValueError("PLANTNET_API_KEY is required when IDENTIFY_PROVIDER=plantnet")
+        return self
+
+
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
