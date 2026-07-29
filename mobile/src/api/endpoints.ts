@@ -1,5 +1,5 @@
 import { request } from './client';
-import type { AuthResponse, CareInfo, IdentifyResponse, Plant, User } from './types';
+import type { AuthResponse, CareInfo, IdentifyResponse, Plant, User, Watering } from './types';
 
 export function signup(email: string, password: string, timezone: string) {
   return request<AuthResponse>('/api/v1/auth/signup', {
@@ -77,4 +77,17 @@ export function updatePlant(
 
 export function deletePlant(token: string, id: number) {
   return request<void>(`/api/v1/plants/${id}`, { method: 'DELETE', token });
+}
+
+/** Returns the plant with its re-anchored schedule. */
+export function waterPlant(token: string, id: number, wateredAt?: string) {
+  return request<Plant>(`/api/v1/plants/${id}/waterings`, {
+    method: 'POST',
+    body: wateredAt ? { watered_at: wateredAt } : {},
+    token,
+  });
+}
+
+export function fetchWaterings(token: string, id: number) {
+  return request<Watering[]>(`/api/v1/plants/${id}/waterings`, { token });
 }

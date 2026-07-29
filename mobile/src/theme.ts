@@ -114,6 +114,17 @@ export const styles = StyleSheet.create({
     height: 64,
     borderRadius: 8,
   },
+  waterChip: {
+    alignSelf: 'center',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: colors.green,
+  },
+  waterChipText: {
+    color: colors.white,
+    fontWeight: '600',
+  },
   attribution: {
     marginTop: 8,
     fontSize: 13,

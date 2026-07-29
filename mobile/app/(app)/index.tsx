@@ -6,10 +6,20 @@ import { mediaUrl } from '@/api/client';
 import * as api from '@/api/endpoints';
 import { plantName, type Plant } from '@/api/types';
 import { useAuth, useAuthToken } from '@/auth/AuthContext';
+import { DueText } from '@/components/DueText';
 import { ErrorText } from '@/components/ErrorText';
+import { useWaterPlant } from '@/hooks/useWaterPlant';
 import { colors, styles } from '@/theme';
 
-function PlantRow({ plant, onPress }: { plant: Plant; onPress: () => void }) {
+function PlantRow({
+  plant,
+  onPress,
+  onWater,
+}: {
+  plant: Plant;
+  onPress: () => void;
+  onWater: () => void;
+}) {
   return (
     <Pressable style={[styles.card, { flexDirection: 'row', gap: 12 }]} onPress={onPress}>
       {plant.image_url ? (
@@ -22,10 +32,13 @@ function PlantRow({ plant, onPress }: { plant: Plant; onPress: () => void }) {
         {plant.scientific_name ? (
           <Text style={[styles.muted, { fontStyle: 'italic' }]}>{plant.scientific_name}</Text>
         ) : null}
-        <Text style={styles.muted}>
-          {plant.interval_days ? `Every ${plant.interval_days} days` : 'No schedule yet'}
-        </Text>
+        <DueText plant={plant} />
       </View>
+      {plant.is_due && (
+        <Pressable style={styles.waterChip} onPress={onWater} hitSlop={8}>
+          <Text style={styles.waterChipText}>Water</Text>
+        </Pressable>
+      )}
     </Pressable>
   );
 }
@@ -36,13 +49,20 @@ export default function CollectionScreen() {
   const router = useRouter();
 
   const query = useQuery({ queryKey: ['plants'], queryFn: () => api.fetchPlants(token) });
+  const water = useWaterPlant();
+
+  // Due first, then by how soon. Plants with no schedule sink to the bottom.
+  const plants = [...(query.data ?? [])].sort((a, b) => {
+    const rank = (plant: Plant) => (plant.days_until_due ?? Number.POSITIVE_INFINITY);
+    return rank(a) - rank(b);
+  });
 
   return (
     <View style={styles.screen}>
       <Stack.Screen options={{ title: 'Your plants' }} />
 
       <FlatList
-        data={query.data ?? []}
+        data={plants}
         keyExtractor={(plant) => String(plant.id)}
         contentContainerStyle={styles.content}
         refreshing={query.isRefetching}
@@ -51,9 +71,10 @@ export default function CollectionScreen() {
           <PlantRow
             plant={item}
             onPress={() => router.push({ pathname: '/plant/[id]', params: { id: item.id } })}
+            onWater={() => water.mutate(item.id)}
           />
         )}
-        ListHeaderComponent={<ErrorText message={query.error?.message} />}
+        ListHeaderComponent={<ErrorText message={query.error?.message ?? water.error?.message} />}
         ListEmptyComponent={
           query.isPending ? (
             <ActivityIndicator color={colors.green} />

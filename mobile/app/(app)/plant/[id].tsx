@@ -7,8 +7,11 @@ import { mediaUrl } from '@/api/client';
 import * as api from '@/api/endpoints';
 import { plantName } from '@/api/types';
 import { useAuthToken } from '@/auth/AuthContext';
+import { DueText } from '@/components/DueText';
 import { ErrorText } from '@/components/ErrorText';
 import { Toxicity } from '@/components/Toxicity';
+import { WateredBurst } from '@/components/WateredBurst';
+import { useWaterPlant } from '@/hooks/useWaterPlant';
 import { colors, styles } from '@/theme';
 
 export default function PlantDetailScreen() {
@@ -18,6 +21,8 @@ export default function PlantDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const plantId = Number(id);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [celebrating, setCelebrating] = useState(false);
+  const water = useWaterPlant();
 
   const plantQuery = useQuery({
     queryKey: ['plants', plantId],
@@ -48,7 +53,9 @@ export default function PlantDetailScreen() {
       <Stack.Screen options={{ title: plant ? plantName(plant) : 'Plant' }} />
       <ScrollView contentContainerStyle={styles.content}>
         {plantQuery.isPending && <ActivityIndicator color={colors.green} />}
-        <ErrorText message={plantQuery.error?.message ?? remove.error?.message} />
+        <ErrorText
+          message={plantQuery.error?.message ?? water.error?.message ?? remove.error?.message}
+        />
 
         {plant && (
           <>
@@ -68,7 +75,25 @@ export default function PlantDetailScreen() {
                   ? `Water every ${plant.interval_days} days`
                   : 'No watering schedule set yet'}
               </Text>
+              <DueText plant={plant} />
+              <Text style={styles.muted}>
+                {plant.last_watered_at
+                  ? `Last watered ${new Date(plant.last_watered_at).toLocaleDateString()}`
+                  : 'No watering logged yet'}
+              </Text>
             </View>
+
+            <Pressable
+              style={[styles.button, water.isPending && styles.buttonDisabled]}
+              disabled={water.isPending}
+              onPress={() =>
+                water.mutate(plantId, { onSuccess: () => setCelebrating(true) })
+              }
+            >
+              <Text style={styles.buttonText}>
+                {water.isPending ? 'Logging…' : 'Water now'}
+              </Text>
+            </Pressable>
 
             {careQuery.data && careQuery.data.match_kind !== 'none' && (
               <Toxicity care={careQuery.data} />
@@ -90,6 +115,8 @@ export default function PlantDetailScreen() {
           </>
         )}
       </ScrollView>
+
+      {celebrating && <WateredBurst onDone={() => setCelebrating(false)} />}
     </View>
   );
 }
