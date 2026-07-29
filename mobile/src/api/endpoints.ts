@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system';
+
 import { request } from './client';
 import type { AuthResponse, CareInfo, IdentifyResponse, Plant, User, Watering } from './types';
 
@@ -27,22 +29,11 @@ export function updateTimezone(token: string, timezone: string) {
   return request<User>('/api/v1/me', { method: 'PATCH', body: { timezone }, token });
 }
 
-export type PhotoToIdentify = {
-  uri: string;
-  fileName?: string | null;
-  mimeType?: string | null;
-};
-
-export function identify(token: string, photos: PhotoToIdentify[]) {
+export function identify(token: string, uris: string[]) {
   const form = new FormData();
-  photos.forEach((photo, index) => {
-    // React Native's FormData takes this {uri, name, type} shape rather than a Blob.
-    form.append('images', {
-      uri: photo.uri,
-      name: photo.fileName ?? `plant-${index}.jpg`,
-      type: photo.mimeType ?? 'image/jpeg',
-    } as unknown as Blob);
-  });
+  // Expo's fetch serializes FormData in JS and only accepts Blob parts, so each
+  // photo goes in as a File. The legacy {uri, name, type} shape throws.
+  uris.forEach((uri) => form.append('images', new File(uri)));
   return request<IdentifyResponse>('/api/v1/identify', { method: 'POST', form, token });
 }
 

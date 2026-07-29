@@ -4,7 +4,6 @@ import { Stack } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import * as api from '@/api/endpoints';
-import type { PhotoToIdentify } from '@/api/endpoints';
 import { useAuthToken } from '@/auth/AuthContext';
 import { Candidates } from '@/components/Candidates';
 import { ErrorText } from '@/components/ErrorText';
@@ -12,19 +11,15 @@ import { colors, styles } from '@/theme';
 
 const MAX_PHOTOS = 5;
 
-function toPhotos(assets: ImagePicker.ImagePickerAsset[]): PhotoToIdentify[] {
-  return assets.slice(0, MAX_PHOTOS).map((asset) => ({
-    uri: asset.uri,
-    fileName: asset.fileName,
-    mimeType: asset.mimeType,
-  }));
+function toUris(assets: ImagePicker.ImagePickerAsset[]): string[] {
+  return assets.slice(0, MAX_PHOTOS).map((asset) => asset.uri);
 }
 
 export default function IdentifyScreen() {
   const token = useAuthToken();
 
   const mutation = useMutation({
-    mutationFn: (photos: PhotoToIdentify[]) => api.identify(token, photos),
+    mutationFn: (uris: string[]) => api.identify(token, uris),
   });
 
   // exif: false keeps GPS off the wire. The API strips it again regardless —
@@ -37,7 +32,7 @@ export default function IdentifyScreen() {
       exif: false,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets?.length) mutation.mutate(toPhotos(result.assets));
+    if (!result.canceled && result.assets?.length) mutation.mutate(toUris(result.assets));
   };
 
   const takePhoto = async () => {
@@ -48,7 +43,7 @@ export default function IdentifyScreen() {
       exif: false,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets?.length) mutation.mutate(toPhotos(result.assets));
+    if (!result.canceled && result.assets?.length) mutation.mutate(toUris(result.assets));
   };
 
   return (
