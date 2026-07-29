@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Identify a plant — perfect bloom{% endblock %}
+
+{% block content %}
+  <h1>Identify a plant</h1>
+  <p class="muted">Up to 5 photos of the <em>same</em> plant. Leaves and flowers work best.</p>
+
+  <form class="stack" hx-post="/identify" hx-encoding="multipart/form-data"
+        hx-target="#results" hx-disabled-elt="find button">
+    <label for="images">Photos</label>
+    <input id="images" name="images" type="file" multiple required
+           accept="image/jpeg,image/png,image/webp">
+    <button type="submit">Identify</button>
+    <p class="htmx-indicator" aria-live="polite">Looking it up…</p>
+  </form>
+
+  <div id="results"></div>
+{% endblock %}
