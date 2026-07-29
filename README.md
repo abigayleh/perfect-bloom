@@ -40,6 +40,7 @@ uv run ruff check --fix . && uv run ruff format .
 | `POST` | `/api/v1/auth/logout` | bearer |
 | `GET` | `/api/v1/me` | bearer |
 | `POST` | `/api/v1/identify` | bearer |
+| `GET` | `/api/v1/care?scientific_name=…` | bearer |
 | `GET` | `/healthz` | — |
 
 Interactive docs at `/docs` while the server is running.

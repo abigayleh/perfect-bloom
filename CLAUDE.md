@@ -136,6 +136,16 @@ scores. Returns taxonomy *only*: no care data, no toxicity, no diagnosis.
 cycle (annual/perennial), flowering season, pest susceptibility, and the
 `poisonous_to_pets` / `poisonous_to_humans` fields the toxicity rule depends on.
 
+- **Toxicity is only in `/species/details/{id}`, not in `/species-list`.** A
+  resolved species therefore costs two calls, which is why the cache is
+  load-bearing rather than an optimization.
+- Search is fuzzy. A hit is accepted only when its own `scientific_name`
+  normalizes to the name we asked for — otherwise the wrong plant's toxicity
+  would be attached to the user's plant.
+- **The field mapping has never been checked against a live response**, only
+  against the docs. Verify it with a real key before launch; `parse_toxicity`
+  is deliberately defensive because of this.
+
 **Species matching is the main technical risk in V1.** PlantNet returns a
 scientific name; Perenual must be searched by it, and the two do not agree
 cleanly. Approach:
@@ -216,6 +226,10 @@ multi-user shared collections, a web version, offline-first sync.
   only if a phone that hasn't opened the app in weeks must still be nudged.
 - **Plant deletion is a soft delete** (`plants.deleted_at`). `watering_events`
   never cascades — the log outlives the plant, per the domain rule above.
+- **Perenual data is fetched lazily per species and cached**, not bulk-imported.
+  A hit in `species_cache` never expires; a miss is retried after 30 days, since
+  Perenual adds species over time and a permanent "no data" would never heal.
+  `CARE_PROVIDER=fake` serves offline fixtures and needs no key.
 - **Was a PWA until 2026-07-29.** Rebuilt as Expo because a PWA cannot be
   submitted to the App Store. The Jinja/HTMX layer was deleted; the service and
   data layers survived unchanged, which is why they were built behind interfaces.
@@ -226,4 +240,3 @@ Ask before assuming; don't unilaterally resolve these.
 
 - Whether unidentified/manual plants are a first-class flow or an edge case.
 - Notification granularity: one digest at noon vs. per-plant notifications.
-- Whether Perenual data is bulk-cached locally or fetched lazily per species.
