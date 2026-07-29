@@ -1,14 +1,3 @@
-export type User = {
-  id: number;
-  email: string;
-  timezone: string;
-};
-
-export type AuthResponse = {
-  token: string;
-  user: User;
-};
-
 export type Attribution = {
   text: string;
   url: string;

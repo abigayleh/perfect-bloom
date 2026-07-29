@@ -67,6 +67,6 @@ export async function syncReminders(plants: Plant[], now: Date = new Date()): Pr
   return plan.length;
 }
 
-export async function clearReminders() {
-  await Notifications.cancelAllScheduledNotificationsAsync();
-}
+// clearReminders went with sign-out: there is no longer a moment where someone
+// else's plants could be left buzzing this phone, because a phone only ever has
+// the one collection.

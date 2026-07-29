@@ -6,7 +6,6 @@ import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'rea
 
 import * as api from '@/api/endpoints';
 import { plantName } from '@/api/types';
-import { useAuthToken } from '@/auth/AuthContext';
 import { getPlant, softDeletePlant } from '@/db/plants';
 import { DueText } from '@/components/DueText';
 import { ErrorText } from '@/components/ErrorText';
@@ -16,7 +15,6 @@ import { useWaterPlant } from '@/hooks/useWaterPlant';
 import { colors, styles } from '@/theme';
 
 export default function PlantDetailScreen() {
-  const token = useAuthToken();
   const db = useSQLiteContext();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -38,7 +36,7 @@ export default function PlantDetailScreen() {
   // of truth per species and it stays cached server-side.
   const careQuery = useQuery({
     queryKey: ['care', plant?.scientific_name],
-    queryFn: () => api.fetchCare(token, plant!.scientific_name),
+    queryFn: () => api.fetchCare(plant!.scientific_name),
     enabled: Boolean(plant?.scientific_name),
   });
 

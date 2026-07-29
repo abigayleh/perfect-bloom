@@ -3,7 +3,6 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import * as api from '@/api/endpoints';
-import { useAuthToken } from '@/auth/AuthContext';
 import { ErrorText } from '@/components/ErrorText';
 import { Toxicity } from '@/components/Toxicity';
 import { colors, styles } from '@/theme';
@@ -19,7 +18,6 @@ function Fact({ label, value }: { label: string; value: string | null }) {
 }
 
 export default function CareScreen() {
-  const token = useAuthToken();
   const router = useRouter();
   const { name, image_uri: imageUri } = useLocalSearchParams<{
     name: string;
@@ -28,7 +26,7 @@ export default function CareScreen() {
 
   const query = useQuery({
     queryKey: ['care', name],
-    queryFn: () => api.fetchCare(token, name),
+    queryFn: () => api.fetchCare(name),
     enabled: Boolean(name),
   });
 

@@ -1,5 +1,4 @@
 from functools import lru_cache
-from pathlib import Path
 
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -24,10 +23,13 @@ class Settings(BaseSettings):
     perenual_api_key: str = ""
     perenual_base_url: str = "https://perenual.com/api/v2"
 
-    upload_dir: Path = Path("var/uploads")
     max_upload_bytes: int = 8 * 1024 * 1024
     max_upload_images: int = 5
     max_image_dimension: int = 2048
+
+    # Proxied calls per device per day — the only thing between a stranger and the
+    # PlantNet/Perenual bill.
+    device_daily_call_limit: int = 100
 
     http_timeout_seconds: float = 10.0
     http_max_retries: int = 2

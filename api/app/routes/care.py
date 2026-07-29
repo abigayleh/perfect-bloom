@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query, status
 
-from app.deps import RequiredUser, SessionDep
+from app.deps import MeteredDevice, SessionDep
 from app.schemas import CareResponse
 from app.services.care import CareError, get_care_provider, resolve_care
 from app.services.care.lookup import CareResult
@@ -27,7 +27,7 @@ def _to_response(result: CareResult) -> CareResponse:
 
 @router.get("/care", response_model=CareResponse)
 async def care(
-    user: RequiredUser,
+    device: MeteredDevice,
     session: SessionDep,
     scientific_name: str = Query(min_length=2, max_length=255),
 ) -> CareResponse:

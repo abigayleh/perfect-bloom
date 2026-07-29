@@ -6,7 +6,6 @@ import { Suspense } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
-import { AuthProvider, useAuth } from '@/auth/AuthContext';
 import { DATABASE_NAME, migrateDbIfNeeded } from '@/db/schema';
 import { configureNotificationHandler } from '@/notifications';
 import { colors, styles } from '@/theme';
@@ -23,25 +22,10 @@ function Loading() {
   );
 }
 
-function RootNavigator() {
-  const { token, loading } = useAuth();
-
-  if (loading) return <Loading />;
-
-  // Guarded, not redirected: a redirect only runs after render, so the
-  // signed-out app mounted (app) and threw in useAuthToken first.
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Protected guard={!!token}>
-        <Stack.Screen name="(app)" />
-      </Stack.Protected>
-      <Stack.Protected guard={!token}>
-        <Stack.Screen name="(auth)" />
-      </Stack.Protected>
-    </Stack>
-  );
-}
-
+/**
+ * No auth gate any more: the collection lives on this device, so there is nothing
+ * to sign in to. The only thing worth waiting for is the schema migration.
+ */
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
@@ -49,10 +33,8 @@ export default function RootLayout() {
       <Suspense fallback={<Loading />}>
         <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded} useSuspense>
           <QueryClientProvider client={queryClient}>
-            <AuthProvider>
-              <StatusBar style="dark" />
-              <RootNavigator />
-            </AuthProvider>
+            <StatusBar style="dark" />
+            <Stack screenOptions={{ headerShown: false }} />
           </QueryClientProvider>
         </SQLiteProvider>
       </Suspense>

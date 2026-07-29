@@ -17,14 +17,15 @@ a real native binary rather than a wrapped website.
 | Layer | Choice |
 |---|---|
 | App | Expo (React Native) + TypeScript, expo-router |
-| App state | React Query for server state; no server data mirrored into `useState` |
-| Secure storage | `expo-secure-store` for the auth token |
+| Device data | `expo-sqlite` — plants, waterings and photos live on the phone |
+| App state | React Query over the local database; nothing mirrored into `useState` |
+| Secure storage | `expo-secure-store` for the anonymous device token |
 | Reminders | `expo-notifications`, scheduled **on-device** |
-| API | Python 3.12+, FastAPI, JSON only |
-| DB | SQLite in dev, Postgres in prod. SQLAlchemy 2.0 (async) + Alembic. |
+| API | Python 3.12+, FastAPI, JSON only. A metered proxy, not a backend. |
+| DB (server) | SQLite in dev, Postgres in prod. SQLAlchemy 2.0 (async) + Alembic. |
 | Package mgmt | `uv` for the API, `npm` for the app |
 | Tests | pytest + pytest-asyncio (API); vitest for the app's pure logic only |
-| Lint/format | ruff (API), eslint + tsc (app) |
+| Lint/format | ruff (API), `tsc --noEmit` (app — there is no eslint config) |
 
 Alembic is used from the first migration even though dev is SQLite — switching to
 Postgres later must not require hand-written DDL.
@@ -32,25 +33,26 @@ Postgres later must not require hand-written DDL.
 ## Layout
 
 ```
-api/                 # FastAPI JSON API (Python)
+api/                 # FastAPI JSON API — a proxy for two paid APIs, nothing more
   app/
     main.py          # app, lifespan, router wiring
     config.py        # pydantic-settings; all env vars declared here
-    deps.py          # bearer-token auth dependencies
+    deps.py          # device resolution + per-device quota
     schemas.py       # pydantic request/response models
-    models/          # SQLAlchemy models
+    models/          # SQLAlchemy: devices, species_cache
     routes/          # thin HTTP handlers, JSON only
     services/
       identify/      # plant ID providers (see below)
       care/          # care-data lookup + species matching
-      schedule/      # due-date computation
-      accounts.py    # signup / authentication
-      tokens.py      # bearer token issue / resolve / revoke
-      images/        # validation, EXIF stripping, storage
+      devices.py     # anonymous token issue / resolve / meter
+      images/        # validation + EXIF stripping (no storage — nothing is kept)
     db.py
   tests/
   migrations/
 mobile/              # Expo app (TypeScript)
+  src/db/            # the real data layer: schema, plants, waterings
+  src/lib/           # schedule computation, local date keys, photo files
+  src/device/        # the anonymous device token
 ```
 
 ## Commands
@@ -82,6 +84,10 @@ user waters. The next due date is always computed as
 database. If a user waters two days late, every subsequent date shifts with
 them — that is correct behavior, not drift to be fixed.
 
+These tables now live in the *device's* SQLite database (`mobile/src/db/`), and
+the computation is `computeSchedule` in `mobile/src/lib/schedule.ts`. There is
+exactly one implementation of it; do not add a second one to "predict" a result.
+
 **Watering history is a log, never overwritten.** `watering_events` is
 append-only. It's what makes V2 diagnosis possible ("you watered three times
 this week" is a far stronger signal than any photo), so preserve it even when a
@@ -95,11 +101,13 @@ species' absence in the data. When toxicity is unknown, display "unknown" — no
 display. A wrong "safe for cats" on a lily is the one bug in this app that kills
 something. Treat it accordingly.
 
-**Timezones.** Reminders fire at 12:00 *local* time, scheduled on the device,
-which already knows its own zone. The API persists every timestamp as UTC-aware
-and never uses server-local time — see `UtcDateTime` in `models/base.py`, which
-exists because SQLite hands back naive datetimes and Postgres does not. The IANA
-zone is still stored per user so server-side push stays possible later.
+**Timezones stopped being a problem.** Reminders fire at 12:00 local, scheduled
+on the device, and the schedule is now computed on that same device — so "local"
+is just the phone's own clock. No stored IANA zone, no `PATCH /me`, no
+`resolve_zone` fallback. Timestamps are still written as ISO 8601 UTC with an
+explicit `Z`, because JavaScript parses a bare `2026-07-01T12:00` as local time;
+every write goes through `toISOString()`. Server-side, `UtcDateTime` in
+`models/base.py` still normalises what little it stores.
 
 **Identification is behind an interface.** All ID providers implement a single
 Protocol in `api/app/services/identify/base.py`:
@@ -174,19 +182,24 @@ app can show, not a 500.
   request handlers.
 - Routes are thin and return JSON under `/api/v1`. Business logic lives in
   `services/`, and that's what tests target.
-- Auth is a bearer token in `Authorization: Bearer <token>`. Tokens are random,
-  stored only as a SHA-256 digest, and revocable. **Digest, not argon2** — the
-  token is already high-entropy and a slow hash would run on every request.
-  Argon2 is for passwords only.
-- Never trust a client-supplied user id. Every authenticated route resolves the
-  user from the token.
+- **The API has no users.** A device token in `Authorization: Bearer <token>`
+  identifies an anonymous app install and nothing else — no email, no password,
+  no personal data in any table. It exists purely to meter the proxy. Stored as a
+  SHA-256 digest: **digest, not argon2**, because the token is already
+  high-entropy and a slow hash would run on every request.
+- **Every proxied route is metered.** `MeteredDevice` resolves the device and
+  spends one of its daily allowance. A cache hit still counts — one posture beats
+  exempting whichever paths happen to be cheap today.
 - Secrets only via environment, declared in `config.py`. No API keys in code,
-  tests, or fixtures. `.env` stays gitignored.
-- **Strip EXIF before storing any uploaded image.** Phone photos carry GPS, and
-  this app stores pictures taken inside people's homes. The app may also request
-  EXIF-free images from the picker, but the server strip is unconditional.
-- Images: local disk in dev behind a storage interface, S3-compatible later.
-  Never write file paths directly in handlers.
+  tests, or fixtures. `.env` stays gitignored. **Pin every provider to `fake` in
+  `tests/conftest.py`** — a developer's `.env` outranks the defaults, and a
+  missing pin sends the suite at the live API on real credits.
+- **Strip EXIF before forwarding any image.** Phone photos carry GPS and are
+  about to reach a third party. The app also requests EXIF-free images from the
+  picker; the server strip is unconditional regardless.
+- **The server stores no images at all.** Photos are forwarded to PlantNet and
+  discarded; the only copy lives on the device. There is no storage interface, no
+  `/media` mount, and nothing to add access control to.
 - Validate uploads on declared size, then content type and magic bytes, before
   they reach any provider.
 - Migrations must never import app code. Render custom column types as plain SQL
@@ -194,10 +207,14 @@ app can show, not a 500.
 
 ### App
 
-- Server state lives in React Query, never mirrored into component `useState`.
-  Mutations update the cache; optimistic updates live in `useMutation` with a
-  rollback, or are not optimistic at all.
-- The auth token lives in `expo-secure-store`, never `AsyncStorage`.
+- **The device database is the source of truth.** React Query caches reads from
+  `src/db/`; mutations write and invalidate. Never mirror a row into `useState`.
+- **Local writes are pessimistic.** A SQLite insert takes milliseconds, so await
+  it and invalidate. Do not reintroduce optimistic updates — the last one existed
+  only to hide server latency that no longer exists, and its duplicate of the
+  schedule maths is where a UTC-vs-local bug lived.
+- The device token lives in `expo-secure-store`, never `AsyncStorage`, and is
+  fetched inside `src/api/endpoints.ts` so no screen has to carry it.
 - Reminders are scheduled locally and rescheduled after every watering and on app
   open, so a stale schedule can't survive.
 - One failure-surfacing convention app-wide. No `Alert.alert()` scattered ad hoc.
@@ -220,8 +237,19 @@ multi-user shared collections, a web version, offline-first sync.
 ## Decisions made
 
 - **Repo:** monorepo. `api/` and `mobile/` change together on one branch.
-- **Auth:** email + password, argon2 hashed, exchanged for an opaque bearer token
-  with a 90-day expiry. Opaque rather than JWT so logout can actually revoke.
+- **Local-first, no accounts (2026-07-29).** The phone owns its plants, waterings
+  and photos in `expo-sqlite`; the API kept only what needs a secret. Nobody signs
+  in, the app works offline, and no PII is stored anywhere. What forced a server to
+  survive at all is the API keys: PlantNet's free tier is ~50/day tied to one
+  account per legal entity, and `species_cache` is shared across all installs
+  because toxicity costs two Perenual calls per species. Shipping either key in
+  the binary would get it extracted and drained.
+  - **Accepted cost:** a lost or wiped phone loses its watering history. Device
+    backups cover restore; a fresh install does not. Adding sync later is
+    tractable because an append-only log merges by union, but it is not built.
+  - **Replaced:** email + password + argon2 + revocable 90-day bearer tokens, and
+    with them `accounts.py`, `tokens.py`, `security.py`, four tables and the whole
+    `(auth)` route group.
 - **Reminders are on-device local notifications**, not server push. This removes
   APScheduler, Web Push, VAPID keys, and any push-subscription table. Revisit
   only if a phone that hasn't opened the app in weeks must still be nudged.
@@ -239,9 +267,10 @@ multi-user shared collections, a web version, offline-first sync.
   a null interval is valid and simply has no schedule yet.
 - **Due dates are local calendar dates, not instants.** Reminders fire at noon
   local, so a plant watered at 11pm must be due on the day the reminder lands.
-  `compute_schedule` converts to the user's zone, adds `interval_days` as
-  calendar days, and compares dates — so a 14-day interval across a DST change
-  is still 14 days. Nothing is persisted; it is recomputed on every read.
+  `computeSchedule` adds `interval_days` as calendar days and compares dates — so
+  a 14-day interval across a DST change is still 14 days. Nothing is persisted; it
+  is recomputed on every read. `vitest.config.ts` pins `TZ` so those cases are
+  actually asserted rather than passing by accident on a UTC machine.
 - **A plant with no watering logged anchors on `created_at`**, labelled
   `anchor: "created"` so the UI can say "not watered yet". That is a real
   timestamp, not an invented schedule.
@@ -254,22 +283,34 @@ multi-user shared collections, a web version, offline-first sync.
   assuming nothing gets watered; watering, adding, or removing a plant cancels
   everything and rebuilds. iOS caps pending notifications at 64, hence the
   horizon.
-- **The app pushes the device's timezone to `PATCH /api/v1/me` on launch.**
-  Without it, due dates stay pinned to the zone captured at signup while
-  notifications fire in device time — off by a day for anyone who travels.
+- **Photos are copied out of the picker's cache only on save.** `ImagePicker`
+  returns a cache URI the OS may purge, so `persistPhoto` copies it into the
+  document directory when the plant is actually saved — which also means an
+  abandoned identification leaves nothing behind anywhere.
 - **Known gap: a watering cannot be undone.** The log is append-only by rule, so
   a mis-tap is permanent and skews the history V2 depends on. If this needs
   fixing, the honest option is a `voided_at` column rather than a delete.
-- **Known gap: `/media` is a public unauthenticated mount.** Keys are uuid4, so
-  photos are not enumerable, but there is no ownership check on read. Fix this
-  when storage moves to S3 by issuing signed URLs — these are pictures taken
-  inside people's homes.
+- **Known gap: there is no way to edit a plant after saving.** No nickname change,
+  and no way to set an interval later — so "No watering schedule set yet" on the
+  detail screen has no affordance behind it. The API had `PATCH /plants/{id}` but
+  no screen ever called it, so nothing was lost moving to the device.
+- **Known gap: device registration is unmetered.** The per-device quota stops
+  casual abuse and gives a revocation handle, but anyone can re-register for a
+  fresh allowance. Per-IP limiting on `POST /devices` is the fix if it matters.
+- **`/media` gap closed (2026-07-29)** by the local-first move: the server stores
+  no photo, so there is no public mount and nothing to access-control.
 - **Was a PWA until 2026-07-29.** Rebuilt as Expo because a PWA cannot be
   submitted to the App Store. The Jinja/HTMX layer was deleted; the service and
   data layers survived unchanged, which is why they were built behind interfaces.
 
 ## Open decisions
 
-None outstanding — V1 is feature-complete. Before a public launch, the two
-known gaps above (`/media` access control, no watering undo) and the PlantNet
-tier question all need answers.
+None outstanding — V1 is feature-complete. Before a public launch:
+
+- **The PlantNet tier question**, unchanged and still the biggest one. A device
+  quota rations the free tier; it does not make it legitimate for public use.
+- **Unmetered device registration** (see the gap above) — decide whether per-IP
+  limiting is worth it.
+- **No watering undo**, and **no way to edit a plant after saving**.
+- **Whether losing history with a phone is acceptable at launch**, or whether the
+  optional-sync path gets built after all.

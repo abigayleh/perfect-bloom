@@ -1,12 +1,11 @@
 from fastapi import APIRouter, HTTPException, UploadFile, status
 
-from app.deps import RequiredUser
+from app.deps import MeteredDevice
 from app.schemas import AttributionOut, CandidateOut, IdentifyResponse
 from app.services.identify import IdentificationError, get_identifier
 from app.services.identify.base import Attribution, Candidate
 from app.services.images import (
     UploadRejected,
-    get_storage,
     process_upload,
     validate_batch,
     validate_size,
@@ -36,8 +35,13 @@ def _attribution_out(attribution: Attribution | None) -> AttributionOut | None:
 
 
 @router.post("/identify", response_model=IdentifyResponse)
-async def identify(user: RequiredUser, images: list[UploadFile]) -> IdentifyResponse:
-    """A provider outage is a 503 the client can explain, never an unhandled 500."""
+async def identify(device: MeteredDevice, images: list[UploadFile]) -> IdentifyResponse:
+    """Forward photos to the provider and return taxonomy. Nothing is stored.
+
+    EXIF is still stripped unconditionally before anything leaves this process —
+    the photo is about to reach a third party, and phone photos carry GPS. A
+    provider outage is a 503 the client can explain, never an unhandled 500.
+    """
     identifier = get_identifier()
 
     try:
@@ -56,12 +60,7 @@ async def identify(user: RequiredUser, images: list[UploadFile]) -> IdentifyResp
     except IdentificationError as exc:
         raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail=str(exc)) from exc
 
-    storage = get_storage()
-    image_key = await storage.save(processed[0])
-
     return IdentifyResponse(
         candidates=[_candidate_out(c) for c in candidates],
-        image_url=storage.url(image_key),
-        image_key=image_key,
         attribution=_attribution_out(identifier.attribution),
     )

@@ -4,7 +4,6 @@ import pytest
 from PIL import Image
 
 from app.services.images import UploadRejected, process_upload, validate_upload
-from app.services.images.storage import LocalDiskStorage
 from app.services.images.validation import validate_batch, validate_size
 
 ORIENTATION_TAG = 274
@@ -96,19 +95,6 @@ def test_validate_batch_rejects(count):
         validate_batch(count)
 
 
-async def test_storage_round_trip(tmp_path):
-    storage = LocalDiskStorage(tmp_path)
-
-    key = await storage.save(b"pretend-jpeg")
-
-    assert (tmp_path / key).read_bytes() == b"pretend-jpeg"
-    assert storage.url(key) == f"/media/{key}"
-
-    await storage.delete(key)
-    assert not (tmp_path / key).exists()
-
-
-@pytest.mark.parametrize("key", ["../escape.jpg", "nested/path.jpg", ""])
-def test_storage_rejects_unsafe_keys(tmp_path, key):
-    with pytest.raises(ValueError):
-        LocalDiskStorage(tmp_path).url(key)
+# The storage tests went with storage itself: the server never writes a photo now,
+# so there is no key to traverse and no /media mount to serve one from. EXIF
+# stripping is still covered above, because it still runs before every forward.

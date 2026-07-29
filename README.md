@@ -33,18 +33,19 @@ uv run ruff check --fix . && uv run ruff format .
 
 ### Endpoints
 
+The API is a metered proxy for PlantNet and Perenual, plus the shared species
+cache. Plants, waterings and photos live on the device — none of them are here.
+
 | Method | Path | Auth |
 |---|---|---|
-| `POST` | `/api/v1/auth/signup` | — |
-| `POST` | `/api/v1/auth/login` | — |
-| `POST` | `/api/v1/auth/logout` | bearer |
-| `GET` `PATCH` | `/api/v1/me` | bearer |
-| `POST` | `/api/v1/identify` | bearer |
-| `GET` | `/api/v1/care?scientific_name=…` | bearer |
-| `GET` `POST` | `/api/v1/plants` | bearer |
-| `GET` `PATCH` `DELETE` | `/api/v1/plants/{id}` | bearer |
-| `GET` `POST` | `/api/v1/plants/{id}/waterings` | bearer |
+| `POST` | `/api/v1/devices` | — |
+| `POST` | `/api/v1/identify` | device token |
+| `GET` | `/api/v1/care?scientific_name=…` | device token |
 | `GET` | `/healthz` | — |
+
+A device token is anonymous: no email, no password, nothing personal. It exists so
+the two routes that spend real credits can be rationed per install
+(`DEVICE_DAILY_CALL_LIMIT`, default 100/day).
 
 Interactive docs at `/docs` while the server is running.
 

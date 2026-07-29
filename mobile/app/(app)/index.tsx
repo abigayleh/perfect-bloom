@@ -4,7 +4,6 @@ import { useSQLiteContext } from 'expo-sqlite';
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from 'react-native';
 
 import { plantName, type Plant } from '@/api/types';
-import { useAuth } from '@/auth/AuthContext';
 import { listPlants } from '@/db/plants';
 import { DueText } from '@/components/DueText';
 import { ErrorText } from '@/components/ErrorText';
@@ -46,7 +45,6 @@ function PlantRow({
 
 export default function CollectionScreen() {
   const db = useSQLiteContext();
-  const { signOut } = useAuth();
   const router = useRouter();
 
   const query = useQuery({ queryKey: ['plants'], queryFn: () => listPlants(db) });
@@ -107,9 +105,6 @@ export default function CollectionScreen() {
                 <Text style={styles.secondaryButtonText}>Add a plant by name</Text>
               </Pressable>
             </Link>
-            <Pressable onPress={signOut}>
-              <Text style={[styles.muted, { textAlign: 'center' }]}>Log out</Text>
-            </Pressable>
           </View>
         }
       />

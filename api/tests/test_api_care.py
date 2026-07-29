@@ -1,13 +1,10 @@
-PASSWORD = "correct-horse-battery"
-SIGNUP = {"email": "ada@example.com", "password": PASSWORD, "timezone": "Europe/London"}
-
-
 async def auth_headers(client) -> dict[str, str]:
-    response = await client.post("/api/v1/auth/signup", json=SIGNUP)
+    """A registered device — the only credential the proxy has."""
+    response = await client.post("/api/v1/devices")
     return {"Authorization": f"Bearer {response.json()['token']}"}
 
 
-async def test_care_requires_authentication(client):
+async def test_care_requires_a_registered_device(client):
     response = await client.get("/api/v1/care", params={"scientific_name": "Monstera deliciosa"})
 
     assert response.status_code == 401

@@ -5,7 +5,6 @@ import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import * as api from '@/api/endpoints';
-import { useAuthToken } from '@/auth/AuthContext';
 import { Candidates } from '@/components/Candidates';
 import { ErrorText } from '@/components/ErrorText';
 import { colors, styles } from '@/theme';
@@ -17,13 +16,12 @@ function toUris(assets: ImagePicker.ImagePickerAsset[]): string[] {
 }
 
 export default function IdentifyScreen() {
-  const token = useAuthToken();
   // Kept so the results can show the photo the user picked, and so that URI can
   // travel to the add screen. Nothing leaves the picker's cache until a save.
   const [uris, setUris] = useState<string[]>([]);
 
   const mutation = useMutation({
-    mutationFn: (picked: string[]) => api.identify(token, picked),
+    mutationFn: (picked: string[]) => api.identify(picked),
   });
 
   const run = (picked: string[]) => {
