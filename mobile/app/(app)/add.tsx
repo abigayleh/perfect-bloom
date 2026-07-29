@@ -1,11 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
-import * as api from '@/api/endpoints';
-import { useAuthToken } from '@/auth/AuthContext';
 import { ErrorText } from '@/components/ErrorText';
+import { createPlant } from '@/db/plants';
+import { persistPhoto } from '@/lib/photos';
 import { styles } from '@/theme';
 
 /**
@@ -14,13 +15,13 @@ import { styles } from '@/theme';
  * a fallback, so nothing here depends on having identified anything.
  */
 export default function AddPlantScreen() {
-  const token = useAuthToken();
+  const db = useSQLiteContext();
   const router = useRouter();
   const queryClient = useQueryClient();
   const params = useLocalSearchParams<{
     name?: string;
     common_name?: string;
-    image_key?: string;
+    image_uri?: string;
   }>();
 
   const [scientificName, setScientificName] = useState(params.name ?? '');
@@ -28,14 +29,18 @@ export default function AddPlantScreen() {
   const [interval, setInterval] = useState('');
 
   const mutation = useMutation({
-    mutationFn: () =>
-      api.createPlant(token, {
+    mutationFn: async () => {
+      // Copied out of the picker's cache only now, so abandoning the flow leaves
+      // nothing behind.
+      const imageUri = params.image_uri ? await persistPhoto(params.image_uri) : null;
+      return createPlant(db, {
         scientific_name: scientificName.trim(),
         nickname: nickname.trim() || null,
         common_name: params.common_name ?? null,
-        image_key: params.image_key ?? null,
+        image_uri: imageUri,
         interval_days: interval.trim() ? Number(interval.trim()) : null,
-      }),
+      });
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plants'] });
       router.dismissAll();

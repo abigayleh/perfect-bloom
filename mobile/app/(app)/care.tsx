@@ -21,9 +21,9 @@ function Fact({ label, value }: { label: string; value: string | null }) {
 export default function CareScreen() {
   const token = useAuthToken();
   const router = useRouter();
-  const { name, image_key: imageKey } = useLocalSearchParams<{
+  const { name, image_uri: imageUri } = useLocalSearchParams<{
     name: string;
-    image_key?: string;
+    image_uri?: string;
   }>();
 
   const query = useQuery({
@@ -67,7 +67,7 @@ export default function CareScreen() {
                 params: {
                   name,
                   common_name: care.common_name ?? '',
-                  ...(imageKey ? { image_key: imageKey } : {}),
+                  ...(imageUri ? { image_uri: imageUri } : {}),
                 },
               })
             }

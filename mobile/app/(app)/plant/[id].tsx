@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useState } from 'react';
 import { ActivityIndicator, Image, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { mediaUrl } from '@/api/client';
 import * as api from '@/api/endpoints';
 import { plantName } from '@/api/types';
 import { useAuthToken } from '@/auth/AuthContext';
+import { getPlant, softDeletePlant } from '@/db/plants';
 import { DueText } from '@/components/DueText';
 import { ErrorText } from '@/components/ErrorText';
 import { Toxicity } from '@/components/Toxicity';
@@ -16,6 +17,7 @@ import { colors, styles } from '@/theme';
 
 export default function PlantDetailScreen() {
   const token = useAuthToken();
+  const db = useSQLiteContext();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -26,7 +28,7 @@ export default function PlantDetailScreen() {
 
   const plantQuery = useQuery({
     queryKey: ['plants', plantId],
-    queryFn: () => api.fetchPlant(token, plantId),
+    queryFn: () => getPlant(db, plantId),
     enabled: Number.isFinite(plantId),
   });
 
@@ -41,7 +43,7 @@ export default function PlantDetailScreen() {
   });
 
   const remove = useMutation({
-    mutationFn: () => api.deletePlant(token, plantId),
+    mutationFn: () => softDeletePlant(db, plantId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['plants'] });
       router.back();
@@ -59,8 +61,8 @@ export default function PlantDetailScreen() {
 
         {plant && (
           <>
-            {plant.image_url && (
-              <Image source={{ uri: mediaUrl(plant.image_url) }} style={styles.photo} />
+            {plant.image_uri && (
+              <Image source={{ uri: plant.image_uri }} style={styles.photo} />
             )}
 
             <View style={styles.card}>

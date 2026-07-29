@@ -1,11 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, Stack, useRouter } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from 'react-native';
 
-import { mediaUrl } from '@/api/client';
-import * as api from '@/api/endpoints';
 import { plantName, type Plant } from '@/api/types';
-import { useAuth, useAuthToken } from '@/auth/AuthContext';
+import { useAuth } from '@/auth/AuthContext';
+import { listPlants } from '@/db/plants';
 import { DueText } from '@/components/DueText';
 import { ErrorText } from '@/components/ErrorText';
 import { useReminders } from '@/hooks/useReminders';
@@ -23,8 +23,8 @@ function PlantRow({
 }) {
   return (
     <Pressable style={[styles.card, { flexDirection: 'row', gap: 12 }]} onPress={onPress}>
-      {plant.image_url ? (
-        <Image source={{ uri: mediaUrl(plant.image_url) }} style={styles.thumbnail} />
+      {plant.image_uri ? (
+        <Image source={{ uri: plant.image_uri }} style={styles.thumbnail} />
       ) : (
         <View style={[styles.thumbnail, { backgroundColor: colors.line }]} />
       )}
@@ -45,11 +45,11 @@ function PlantRow({
 }
 
 export default function CollectionScreen() {
-  const token = useAuthToken();
+  const db = useSQLiteContext();
   const { signOut } = useAuth();
   const router = useRouter();
 
-  const query = useQuery({ queryKey: ['plants'], queryFn: () => api.fetchPlants(token) });
+  const query = useQuery({ queryKey: ['plants'], queryFn: () => listPlants(db) });
   const water = useWaterPlant();
   const reminders = useReminders(query.data);
 

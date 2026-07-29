@@ -35,7 +35,8 @@
           "photosPermission": "Perfect Bloom needs your photo library to pick existing plant photos to identify.",
           "cameraPermission": "Perfect Bloom uses the camera to photograph a plant so it can be identified."
         }
-      ]
+      ],
+      "expo-sqlite"
     ],
     "experiments": {
       "typedRoutes": true

@@ -72,8 +72,3 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
-
-/** Absolute URL for a path the API returned, e.g. an uploaded photo. */
-export function mediaUrl(path: string): string {
-  return path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
-}

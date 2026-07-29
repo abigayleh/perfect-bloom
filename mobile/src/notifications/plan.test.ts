@@ -9,7 +9,7 @@ function plant(overrides: Partial<Plant> = {}): Plant {
     nickname: 'Monty',
     scientific_name: 'Monstera deliciosa',
     common_name: null,
-    image_url: null,
+    image_uri: null,
     interval_days: 7,
     created_at: '2026-07-01T00:00:00Z',
     last_watered_at: '2026-07-01T00:00:00Z',

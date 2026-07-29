@@ -1,6 +1,7 @@
 import { useMutation } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Stack } from 'expo-router';
+import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import * as api from '@/api/endpoints';
@@ -17,10 +18,18 @@ function toUris(assets: ImagePicker.ImagePickerAsset[]): string[] {
 
 export default function IdentifyScreen() {
   const token = useAuthToken();
+  // Kept so the results can show the photo the user picked, and so that URI can
+  // travel to the add screen. Nothing leaves the picker's cache until a save.
+  const [uris, setUris] = useState<string[]>([]);
 
   const mutation = useMutation({
-    mutationFn: (uris: string[]) => api.identify(token, uris),
+    mutationFn: (picked: string[]) => api.identify(token, picked),
   });
+
+  const run = (picked: string[]) => {
+    setUris(picked);
+    mutation.mutate(picked);
+  };
 
   // exif: false keeps GPS off the wire. The API strips it again regardless —
   // this is the belt, that's the braces.
@@ -32,7 +41,7 @@ export default function IdentifyScreen() {
       exif: false,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets?.length) mutation.mutate(toUris(result.assets));
+    if (!result.canceled && result.assets?.length) run(toUris(result.assets));
   };
 
   const takePhoto = async () => {
@@ -43,7 +52,7 @@ export default function IdentifyScreen() {
       exif: false,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets?.length) mutation.mutate(toUris(result.assets));
+    if (!result.canceled && result.assets?.length) run(toUris(result.assets));
   };
 
   return (
@@ -79,7 +88,9 @@ export default function IdentifyScreen() {
           </View>
         )}
 
-        {mutation.data && !mutation.isPending && <Candidates result={mutation.data} />}
+        {mutation.data && !mutation.isPending && uris[0] && (
+          <Candidates result={mutation.data} photoUri={uris[0]} />
+        )}
       </ScrollView>
     </View>
   );

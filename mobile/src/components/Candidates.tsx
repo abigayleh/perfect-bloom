@@ -1,7 +1,6 @@
 import { useRouter } from 'expo-router';
 import { Image, Linking, Pressable, Text, View } from 'react-native';
 
-import { mediaUrl } from '@/api/client';
 import type { IdentifyResponse } from '@/api/types';
 import { styles } from '@/theme';
 
@@ -19,13 +18,19 @@ function AttributionLine({ attribution }: Pick<IdentifyResponse, 'attribution'>)
   );
 }
 
-export function Candidates({ result }: { result: IdentifyResponse }) {
+export function Candidates({
+  result,
+  photoUri,
+}: {
+  result: IdentifyResponse;
+  photoUri: string;
+}) {
   const router = useRouter();
 
   return (
     <View style={{ gap: 12 }}>
       <Image
-        source={{ uri: mediaUrl(result.image_url) }}
+        source={{ uri: photoUri }}
         style={styles.photo}
         resizeMode="cover"
         accessibilityLabel="The plant you photographed"
@@ -48,7 +53,7 @@ export function Candidates({ result }: { result: IdentifyResponse }) {
                 pathname: '/care',
                 params: {
                   name: candidate.scientific_name,
-                  image_key: result.image_key,
+                  image_uri: photoUri,
                 },
               })
             }

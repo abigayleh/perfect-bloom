@@ -24,22 +24,29 @@ export type Candidate = {
   family: string | null;
 };
 
+/**
+ * The server also returns image_url/image_key, deliberately unused: the photo we
+ * display is the local file the picker already gave us, and nothing is stored
+ * until the user actually saves the plant.
+ */
 export type IdentifyResponse = {
   candidates: Candidate[];
-  image_url: string;
-  image_key: string;
   attribution: Attribution | null;
 };
 
+/**
+ * A plant in the collection. Lives in the device's SQLite database — the schedule
+ * fields are recomputed on every read by `computeSchedule`, never stored.
+ */
 export type Plant = {
   id: number;
   nickname: string | null;
   scientific_name: string;
   common_name: string | null;
-  image_url: string | null;
+  /** Local file URI under the document directory, not a server path. */
+  image_uri: string | null;
   interval_days: number | null;
   created_at: string;
-  /** All computed server-side from last_watered_at + interval_days. Never stored. */
   last_watered_at: string | null;
   next_due_on: string | null;
   days_until_due: number | null;
