@@ -11,9 +11,16 @@ from app.models import Base
 
 @pytest.fixture(autouse=True, scope="session")
 def test_settings():
-    # No retry backoff in tests, and never a real provider.
+    # No retry backoff, and never a real provider. Every provider setting is
+    # pinned because a developer's .env outranks the defaults — leaving one out
+    # silently points the suite at the live API and spends real credits.
     os.environ["HTTP_MAX_RETRIES"] = "0"
     os.environ["IDENTIFY_PROVIDER"] = "fake"
+    os.environ["CARE_PROVIDER"] = "fake"
+    # Blank keys make a missed pin fail loudly in config validation rather than
+    # quietly reaching the network.
+    os.environ["PLANTNET_API_KEY"] = ""
+    os.environ["PERENUAL_API_KEY"] = ""
     get_settings.cache_clear()
     yield
     get_settings.cache_clear()
