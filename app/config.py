@@ -36,8 +36,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def check_production_secrets(self) -> "Settings":
-        if not self.is_dev and self.secret_key == DEV_SECRET_KEY:
-            raise ValueError("SECRET_KEY must be set outside dev")
+        # An empty SECRET_KEY in .env would otherwise sign sessions with "".
+        if not self.secret_key and self.is_dev:
+            self.secret_key = DEV_SECRET_KEY
+        if not self.is_dev and self.secret_key in ("", DEV_SECRET_KEY):
+            raise ValueError("SECRET_KEY must be set to a real value outside dev")
         if self.identify_provider == "plantnet" and not self.plantnet_api_key:
             raise ValueError("PLANTNET_API_KEY is required when IDENTIFY_PROVIDER=plantnet")
         return self
