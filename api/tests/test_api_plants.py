@@ -1,6 +1,8 @@
 from sqlalchemy import select
 
-from app.models import Plant
+from app.models import Plant, User
+from app.services.images.storage import LocalDiskStorage
+from app.services.plants import create_plant, delete_plant
 
 PASSWORD = "correct-horse-battery"
 
@@ -106,6 +108,32 @@ async def test_delete_is_soft_so_history_can_outlive_the_plant(client, session):
 
     row = (await session.execute(select(Plant).where(Plant.id == plant_id))).scalar_one()
     assert row.deleted_at is not None, "the row must survive for watering_events to reference"
+
+
+async def test_deleting_a_plant_removes_its_photo(session, tmp_path):
+    # Service-level: the photo lives on disk, so the test needs its own storage
+    # root rather than the configured one.
+    storage = LocalDiskStorage(tmp_path)
+    user = User(email="ada@example.com", password_hash="x", timezone="Europe/London")
+    session.add(user)
+    await session.commit()
+    key = await storage.save(b"pretend-jpeg")
+    plant = await create_plant(session, user, nickname="Big Monty", image_key=key)
+
+    assert await delete_plant(session, user, plant.id, storage) is True
+
+    assert not (tmp_path / key).exists(), "a photo of someone's home must not outlive the plant"
+    assert plant.image_key is None, "no key should point at a file that is gone"
+
+
+async def test_deleting_a_plant_without_a_photo_is_fine(session, tmp_path):
+    storage = LocalDiskStorage(tmp_path)
+    user = User(email="grace@example.com", password_hash="x", timezone="Europe/London")
+    session.add(user)
+    await session.commit()
+    plant = await create_plant(session, user, nickname="Unphotographed")
+
+    assert await delete_plant(session, user, plant.id, storage) is True
 
 
 async def test_deleting_twice_is_a_404_not_a_crash(client):

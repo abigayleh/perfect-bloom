@@ -117,7 +117,7 @@ async def update(
 
 @router.delete("/{plant_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def destroy(plant_id: int, user: RequiredUser, session: SessionDep) -> None:
-    if not await delete_plant(session, user, plant_id):
+    if not await delete_plant(session, user, plant_id, get_storage()):
         raise NOT_FOUND
 
 

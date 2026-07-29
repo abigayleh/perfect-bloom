@@ -4,6 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import Plant, SpeciesCache, User
 from app.models.base import utcnow
 from app.services.care.normalize import normalize
+from app.services.images.storage import Storage
 
 MAX_INTERVAL_DAYS = 365
 
@@ -114,11 +115,23 @@ async def update_plant(
     return plant
 
 
-async def delete_plant(session: AsyncSession, user: User, plant_id: int) -> bool:
-    """Soft delete. watering_events must outlive the plant, per the domain rule."""
+async def delete_plant(session: AsyncSession, user: User, plant_id: int, storage: Storage) -> bool:
+    """Soft delete the row, hard delete the photo.
+
+    watering_events must outlive the plant, per the domain rule — but the photo
+    is not the log. It is a picture taken inside someone's home, so removing the
+    plant removes it, and the key is cleared so nothing points at a gone file.
+    Deleted after the commit: a storage failure must not undo the delete.
+    """
     plant = await get_plant(session, user, plant_id)
     if plant is None:
         return False
+
+    image_key = plant.image_key
     plant.deleted_at = utcnow()
+    plant.image_key = None
     await session.commit()
+
+    if image_key:
+        await storage.delete(image_key)
     return True
