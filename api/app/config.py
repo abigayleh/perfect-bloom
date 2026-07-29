@@ -19,6 +19,8 @@ class Settings(BaseSettings):
     identify_provider: str = "fake"
     plantnet_api_key: str = ""
     plantnet_base_url: str = "https://my-api.plantnet.org/v2"
+
+    care_provider: str = "fake"
     perenual_api_key: str = ""
     perenual_base_url: str = "https://perenual.com/api/v2"
 
@@ -43,6 +45,8 @@ class Settings(BaseSettings):
             raise ValueError("SECRET_KEY must be set to a real value outside dev")
         if self.identify_provider == "plantnet" and not self.plantnet_api_key:
             raise ValueError("PLANTNET_API_KEY is required when IDENTIFY_PROVIDER=plantnet")
+        if self.care_provider == "perenual" and not self.perenual_api_key:
+            raise ValueError("PERENUAL_API_KEY is required when CARE_PROVIDER=perenual")
         return self
 
 

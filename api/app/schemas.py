@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic import BaseModel
 
 
@@ -44,3 +46,24 @@ class IdentifyResponse(BaseModel):
     candidates: list[CandidateOut]
     image_url: str
     attribution: AttributionOut | None = None
+
+
+class CareResponse(BaseModel):
+    """Care facts, verbatim from the source.
+
+    poisonous_to_pets / poisonous_to_humans are tri-state. null means the source
+    did not say — clients must render that as "unknown", never as safe.
+    """
+
+    requested_name: str
+    normalized_name: str
+    match_kind: Literal["exact", "genus", "none"]
+    matched_name: str | None = None
+    common_name: str | None = None
+    watering: str | None = None
+    sunlight: list[str] = []
+    cycle: str | None = None
+    poisonous_to_pets: bool | None = None
+    poisonous_to_humans: bool | None = None
+    toxicity_known: bool = False
+    from_cache: bool = False

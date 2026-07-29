@@ -20,6 +20,9 @@ class SpeciesCache(Base):
     normalized_name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     match_kind: Mapped[str] = mapped_column(String(16))  # exact | genus | none
 
+    # What the provider actually matched — differs from normalized_name on a
+    # genus fallback, and the UI has to say which it showed.
+    matched_name: Mapped[str | None] = mapped_column(String(255), default=None)
     perenual_id: Mapped[int | None] = mapped_column(Integer, default=None)
     common_name: Mapped[str | None] = mapped_column(String(255), default=None)
     watering: Mapped[str | None] = mapped_column(String(64), default=None)
