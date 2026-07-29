@@ -109,6 +109,11 @@ export const styles = StyleSheet.create({
     borderRadius: 10,
     backgroundColor: colors.line,
   },
+  thumbnail: {
+    width: 64,
+    height: 64,
+    borderRadius: 8,
+  },
   attribution: {
     marginTop: 8,
     fontSize: 13,

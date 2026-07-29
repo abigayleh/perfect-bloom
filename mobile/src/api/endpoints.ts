@@ -1,5 +1,5 @@
 import { request } from './client';
-import type { AuthResponse, CareInfo, IdentifyResponse, User } from './types';
+import type { AuthResponse, CareInfo, IdentifyResponse, Plant, User } from './types';
 
 export function signup(email: string, password: string, timezone: string) {
   return request<AuthResponse>('/api/v1/auth/signup', {
@@ -45,4 +45,36 @@ export function identify(token: string, photos: PhotoToIdentify[]) {
 export function fetchCare(token: string, scientificName: string) {
   const query = encodeURIComponent(scientificName);
   return request<CareInfo>(`/api/v1/care?scientific_name=${query}`, { token });
+}
+
+export type PlantInput = {
+  scientific_name?: string;
+  nickname?: string | null;
+  common_name?: string | null;
+  image_key?: string | null;
+  interval_days?: number | null;
+};
+
+export function fetchPlants(token: string) {
+  return request<Plant[]>('/api/v1/plants', { token });
+}
+
+export function fetchPlant(token: string, id: number) {
+  return request<Plant>(`/api/v1/plants/${id}`, { token });
+}
+
+export function createPlant(token: string, body: PlantInput) {
+  return request<Plant>('/api/v1/plants', { method: 'POST', body, token });
+}
+
+export function updatePlant(
+  token: string,
+  id: number,
+  body: { nickname?: string; interval_days?: number | null; clear_interval?: boolean },
+) {
+  return request<Plant>(`/api/v1/plants/${id}`, { method: 'PATCH', body, token });
+}
+
+export function deletePlant(token: string, id: number) {
+  return request<void>(`/api/v1/plants/${id}`, { method: 'DELETE', token });
 }

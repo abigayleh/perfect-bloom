@@ -46,7 +46,10 @@ export function Candidates({ result }: { result: IdentifyResponse }) {
             onPress={() =>
               router.push({
                 pathname: '/care',
-                params: { name: candidate.scientific_name },
+                params: {
+                  name: candidate.scientific_name,
+                  image_key: result.image_key,
+                },
               })
             }
           >

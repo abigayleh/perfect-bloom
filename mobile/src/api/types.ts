@@ -27,8 +27,24 @@ export type Candidate = {
 export type IdentifyResponse = {
   candidates: Candidate[];
   image_url: string;
+  image_key: string;
   attribution: Attribution | null;
 };
+
+export type Plant = {
+  id: number;
+  nickname: string | null;
+  scientific_name: string;
+  common_name: string | null;
+  image_url: string | null;
+  interval_days: number | null;
+  created_at: string;
+};
+
+/** Nickname wins, then the common name, then the binomial. */
+export function plantName(plant: Plant): string {
+  return plant.nickname || plant.common_name || plant.scientific_name || 'Unnamed plant';
+}
 
 export type MatchKind = 'exact' | 'genus' | 'none';
 

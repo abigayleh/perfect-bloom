@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { Stack, useLocalSearchParams } from 'expo-router';
-import { ActivityIndicator, ScrollView, Text, View } from 'react-native';
+import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 
 import * as api from '@/api/endpoints';
 import { useAuthToken } from '@/auth/AuthContext';
@@ -20,7 +20,11 @@ function Fact({ label, value }: { label: string; value: string | null }) {
 
 export default function CareScreen() {
   const token = useAuthToken();
-  const { name } = useLocalSearchParams<{ name: string }>();
+  const router = useRouter();
+  const { name, image_key: imageKey } = useLocalSearchParams<{
+    name: string;
+    image_key?: string;
+  }>();
 
   const query = useQuery({
     queryKey: ['care', name],
@@ -52,6 +56,24 @@ export default function CareScreen() {
               You can still add it and set your own watering interval.
             </Text>
           </View>
+        )}
+
+        {care && (
+          <Pressable
+            style={styles.button}
+            onPress={() =>
+              router.push({
+                pathname: '/add',
+                params: {
+                  name,
+                  common_name: care.common_name ?? '',
+                  ...(imageKey ? { image_key: imageKey } : {}),
+                },
+              })
+            }
+          >
+            <Text style={styles.buttonText}>Add to my plants</Text>
+          </Pressable>
         )}
 
         {care && care.match_kind !== 'none' && (
