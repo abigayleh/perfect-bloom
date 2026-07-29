@@ -230,6 +230,16 @@ multi-user shared collections, a web version, offline-first sync.
   A hit in `species_cache` never expires; a miss is retried after 30 days, since
   Perenual adds species over time and a permanent "no data" would never heal.
   `CARE_PROVIDER=fake` serves offline fixtures and needs no key.
+- **Manual plants are first-class**, not a fallback. "Add a plant by name" sits
+  next to "Identify" on the collection screen, and `mobile/app/(app)/add.tsx`
+  serves both the blank and the prefilled-from-identification cases. A plant
+  needs only a name *or* a nickname; species and interval are both optional.
+- **The watering interval is captured at save time but optional.** A plant with
+  a null interval is valid and simply has no schedule yet.
+- **Known gap: `/media` is a public unauthenticated mount.** Keys are uuid4, so
+  photos are not enumerable, but there is no ownership check on read. Fix this
+  when storage moves to S3 by issuing signed URLs — these are pictures taken
+  inside people's homes.
 - **Was a PWA until 2026-07-29.** Rebuilt as Expo because a PWA cannot be
   submitted to the App Store. The Jinja/HTMX layer was deleted; the service and
   data layers survived unchanged, which is why they were built behind interfaces.
@@ -238,5 +248,4 @@ multi-user shared collections, a web version, offline-first sync.
 
 Ask before assuming; don't unilaterally resolve these.
 
-- Whether unidentified/manual plants are a first-class flow or an edge case.
 - Notification granularity: one digest at noon vs. per-plant notifications.
