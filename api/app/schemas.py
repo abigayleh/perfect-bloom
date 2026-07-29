@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel
@@ -75,9 +75,28 @@ class PlantOut(BaseModel):
     interval_days: int | None
     created_at: datetime
 
+    # Computed on every read, never stored. See services/schedule/due.py.
+    last_watered_at: datetime | None = None
+    next_due_on: date | None = None
+    days_until_due: int | None = None
+    is_due: bool = False
+    anchor: Literal["watering", "created"] = "created"
+
     @property
     def display_name(self) -> str:
         return self.nickname or self.common_name or self.scientific_name
+
+
+class WateringCreate(BaseModel):
+    """watered_at defaults to now. Backdating is allowed; the future is not."""
+
+    watered_at: datetime | None = None
+
+
+class WateringOut(BaseModel):
+    id: int
+    plant_id: int
+    watered_at: datetime
 
 
 class CareResponse(BaseModel):
