@@ -23,6 +23,7 @@ export default function SignupScreen() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [problem, setProblem] = useState<string | null>(null);
   const timezone = deviceTimezone();
 
   const mutation = useMutation({
@@ -30,8 +31,16 @@ export default function SignupScreen() {
     onSuccess: (result) => signIn(result.token, result.user),
   });
 
-  const canSubmit =
-    email.trim().length > 0 && password.length >= MIN_PASSWORD_LENGTH && !mutation.isPending;
+  // Validate on press, not by disabling the button — a dimmed button that does
+  // nothing reads as a broken app, with no way to find out what it wants.
+  function submit() {
+    if (email.trim().length === 0) return setProblem('Enter your email address.');
+    if (password.length < MIN_PASSWORD_LENGTH) {
+      return setProblem(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+    }
+    setProblem(null);
+    mutation.mutate();
+  }
 
   return (
     <KeyboardAvoidingView
@@ -41,7 +50,7 @@ export default function SignupScreen() {
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <Text style={styles.title}>Sign up</Text>
 
-        <ErrorText message={mutation.error?.message} />
+        <ErrorText message={problem ?? mutation.error?.message} />
 
         <View>
           <Text style={styles.label}>Email</Text>
@@ -71,9 +80,9 @@ export default function SignupScreen() {
         <Text style={styles.muted}>Reminders will arrive at noon in {timezone}.</Text>
 
         <Pressable
-          style={[styles.button, !canSubmit && styles.buttonDisabled]}
-          disabled={!canSubmit}
-          onPress={() => mutation.mutate()}
+          style={[styles.button, mutation.isPending && styles.buttonDisabled]}
+          disabled={mutation.isPending}
+          onPress={submit}
         >
           <Text style={styles.buttonText}>
             {mutation.isPending ? 'Creating account…' : 'Create account'}
