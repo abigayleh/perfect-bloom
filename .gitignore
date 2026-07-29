@@ -1,10 +1,19 @@
+# Python / api
 __pycache__/
 *.py[cod]
 .venv/
-.env
 *.db
 *.db-journal
 var/
 .pytest_cache/
 .ruff_cache/
+
+# Node / mobile
+node_modules/
+.expo/
+dist/
+*.tsbuildinfo
+
+# Secrets and local noise
+.env
 .DS_Store
