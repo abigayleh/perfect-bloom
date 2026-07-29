@@ -1,5 +1,5 @@
 import { request } from './client';
-import type { AuthResponse, IdentifyResponse, User } from './types';
+import type { AuthResponse, CareInfo, IdentifyResponse, User } from './types';
 
 export function signup(email: string, password: string, timezone: string) {
   return request<AuthResponse>('/api/v1/auth/signup', {
@@ -40,4 +40,9 @@ export function identify(token: string, photos: PhotoToIdentify[]) {
     } as unknown as Blob);
   });
   return request<IdentifyResponse>('/api/v1/identify', { method: 'POST', form, token });
+}
+
+export function fetchCare(token: string, scientificName: string) {
+  const query = encodeURIComponent(scientificName);
+  return request<CareInfo>(`/api/v1/care?scientific_name=${query}`, { token });
 }

@@ -29,3 +29,21 @@ export type IdentifyResponse = {
   image_url: string;
   attribution: Attribution | null;
 };
+
+export type MatchKind = 'exact' | 'genus' | 'none';
+
+export type CareInfo = {
+  requested_name: string;
+  normalized_name: string;
+  match_kind: MatchKind;
+  matched_name: string | null;
+  common_name: string | null;
+  watering: string | null;
+  sunlight: string[];
+  cycle: string | null;
+  /** Tri-state. null means the source did not say — render "unknown", never "safe". */
+  poisonous_to_pets: boolean | null;
+  poisonous_to_humans: boolean | null;
+  toxicity_known: boolean;
+  from_cache: boolean;
+};

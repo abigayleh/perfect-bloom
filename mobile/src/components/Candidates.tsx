@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { Image, Linking, Pressable, Text, View } from 'react-native';
 
 import { mediaUrl } from '@/api/client';
@@ -19,6 +20,8 @@ function AttributionLine({ attribution }: Pick<IdentifyResponse, 'attribution'>)
 }
 
 export function Candidates({ result }: { result: IdentifyResponse }) {
+  const router = useRouter();
+
   return (
     <View style={{ gap: 12 }}>
       <Image
@@ -37,13 +40,22 @@ export function Candidates({ result }: { result: IdentifyResponse }) {
         </View>
       ) : (
         result.candidates.map((candidate) => (
-          <View key={candidate.scientific_name} style={styles.card}>
+          <Pressable
+            key={candidate.scientific_name}
+            style={styles.card}
+            onPress={() =>
+              router.push({
+                pathname: '/care',
+                params: { name: candidate.scientific_name },
+              })
+            }
+          >
             <Text style={styles.scientific}>{candidate.scientific_name}</Text>
             {candidate.common_names.length > 0 && (
               <Text style={styles.muted}>{candidate.common_names.join(', ')}</Text>
             )}
-            <Text style={styles.muted}>{candidate.confidence_percent}% match</Text>
-          </View>
+            <Text style={styles.muted}>{candidate.confidence_percent}% match · care →</Text>
+          </Pressable>
         ))
       )}
 
