@@ -14,5 +14,8 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.ts'],
     environment: 'node',
+    // Pinned so date logic is asserted against a fixed offset. Without it a
+    // UTC-vs-local bug is invisible on a machine that happens to run in UTC.
+    env: { TZ: 'America/New_York' },
   },
 });

@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import * as api from '@/api/endpoints';
 import type { Plant } from '@/api/types';
 import { useAuthToken } from '@/auth/AuthContext';
+import { localDateKey } from '@/lib/dates';
 
 /**
  * Predict the server's re-anchored schedule so the tap feels instant.
@@ -22,7 +23,7 @@ function optimisticallyWatered(plant: Plant): Plant {
     ...plant,
     last_watered_at: now.toISOString(),
     anchor: 'watering',
-    next_due_on: due.toISOString().slice(0, 10),
+    next_due_on: localDateKey(due),
     days_until_due: plant.interval_days,
     is_due: false,
   };

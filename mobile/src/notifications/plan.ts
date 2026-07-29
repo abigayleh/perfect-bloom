@@ -1,4 +1,5 @@
 import { plantName, type Plant } from '@/api/types';
+import { localDateKey } from '@/lib/dates';
 
 /** How far ahead to schedule. iOS caps pending notifications at 64. */
 export const HORIZON_DAYS = 14;
@@ -11,13 +12,6 @@ export type Reminder = {
 
 function noonOn(year: number, month: number, day: number): Date {
   return new Date(year, month, day, REMINDER_HOUR, 0, 0, 0);
-}
-
-/** "YYYY-MM-DD" for a local calendar day. */
-function dateKey(date: Date): string {
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${date.getFullYear()}-${month}-${day}`;
 }
 
 /**
@@ -39,7 +33,7 @@ export function buildPlan(plants: Plant[], now: Date, horizonDays = HORIZON_DAYS
     const at = noonOn(now.getFullYear(), now.getMonth(), now.getDate() + offset);
     if (at <= now) continue; // today's noon has already passed
 
-    const key = dateKey(at);
+    const key = localDateKey(at);
     const due = scheduled.filter((plant) => plant.next_due_on! <= key);
     if (due.length > 0) {
       reminders.push({ at, names: due.map(plantName) });
