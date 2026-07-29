@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import * as api from '@/api/endpoints';
 import type { User } from '@/api/types';
+import { clearReminders } from '@/notifications';
 
 const TOKEN_KEY = 'perfect-bloom.auth-token';
 
@@ -29,7 +30,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const stored = await SecureStore.getItemAsync(TOKEN_KEY);
         if (stored) {
-          const me = await api.fetchMe(stored);
+          let me = await api.fetchMe(stored);
+          // Due dates are local calendar dates, so a user who travelled needs the
+          // server to know where they are now. Failure here is not fatal.
+          const deviceZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+          if (deviceZone && deviceZone !== me.timezone) {
+            me = await api.updateTimezone(stored, deviceZone).catch(() => me);
+          }
           if (active) {
             setToken(stored);
             setUser(me);
@@ -57,6 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setToken(null);
     setUser(null);
     await SecureStore.deleteItemAsync(TOKEN_KEY);
+    // Someone else's plants must not keep buzzing this phone.
+    await clearReminders().catch(() => undefined);
     // Revoke server-side too, but a network failure must not trap the user
     // in a signed-in state locally.
     if (current) await api.logout(current).catch(() => undefined);

@@ -23,6 +23,10 @@ export function fetchMe(token: string) {
   return request<User>('/api/v1/me', { token });
 }
 
+export function updateTimezone(token: string, timezone: string) {
+  return request<User>('/api/v1/me', { method: 'PATCH', body: { timezone }, token });
+}
+
 export type PhotoToIdentify = {
   uri: string;
   fileName?: string | null;

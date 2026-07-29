@@ -8,6 +8,7 @@ import { plantName, type Plant } from '@/api/types';
 import { useAuth, useAuthToken } from '@/auth/AuthContext';
 import { DueText } from '@/components/DueText';
 import { ErrorText } from '@/components/ErrorText';
+import { useReminders } from '@/hooks/useReminders';
 import { useWaterPlant } from '@/hooks/useWaterPlant';
 import { colors, styles } from '@/theme';
 
@@ -50,6 +51,7 @@ export default function CollectionScreen() {
 
   const query = useQuery({ queryKey: ['plants'], queryFn: () => api.fetchPlants(token) });
   const water = useWaterPlant();
+  const reminders = useReminders(query.data);
 
   // Due first, then by how soon. Plants with no schedule sink to the bottom.
   const plants = [...(query.data ?? [])].sort((a, b) => {
@@ -86,6 +88,15 @@ export default function CollectionScreen() {
         }
         ListFooterComponent={
           <View style={{ gap: 12, marginTop: 20 }}>
+            {reminders.granted === false && (
+              <Pressable style={styles.card} onPress={reminders.enable}>
+                <Text style={styles.label}>Turn on watering reminders</Text>
+                <Text style={styles.muted}>
+                  One notification at noon on the days something needs water.
+                </Text>
+              </Pressable>
+            )}
+
             <Link href="/identify" asChild>
               <Pressable style={styles.button}>
                 <Text style={styles.buttonText}>Identify a plant</Text>

@@ -6,9 +6,12 @@ import { ActivityIndicator, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
+import { configureNotificationHandler } from '@/notifications';
 import { colors, styles } from '@/theme';
 
 const queryClient = new QueryClient();
+
+configureNotificationHandler();
 
 function RootNavigator() {
   const { token, loading } = useAuth();
