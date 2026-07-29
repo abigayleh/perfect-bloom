@@ -21,6 +21,10 @@ class UserOut(BaseModel):
     timezone: str
 
 
+class UserUpdate(BaseModel):
+    timezone: str
+
+
 class TokenOut(BaseModel):
     token: str
     user: UserOut

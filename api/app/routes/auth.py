@@ -2,8 +2,13 @@ from fastapi import APIRouter, HTTPException, status
 
 from app.deps import RequiredToken, RequiredUser, SessionDep
 from app.models import User
-from app.schemas import LoginRequest, SignupRequest, TokenOut, UserOut
-from app.services.accounts import AccountError, authenticate, create_account
+from app.schemas import LoginRequest, SignupRequest, TokenOut, UserOut, UserUpdate
+from app.services.accounts import (
+    AccountError,
+    authenticate,
+    create_account,
+    update_timezone,
+)
 from app.services.tokens import issue_token, revoke_token
 
 router = APIRouter(prefix="/api/v1", tags=["auth"])
@@ -38,3 +43,14 @@ async def logout(token: RequiredToken, session: SessionDep) -> None:
 @router.get("/me", response_model=UserOut)
 async def me(user: RequiredUser) -> UserOut:
     return _user_out(user)
+
+
+@router.patch("/me", response_model=UserOut)
+async def update_me(body: UserUpdate, user: RequiredUser, session: SessionDep) -> UserOut:
+    """The app pushes the device's zone here on launch, so a user who travels
+    gets their reminders at noon where they now are."""
+    try:
+        updated = await update_timezone(session, user, body.timezone)
+    except AccountError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return _user_out(updated)

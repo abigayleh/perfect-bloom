@@ -54,6 +54,16 @@ async def create_account(session: AsyncSession, email: str, password: str, timez
     return user
 
 
+async def update_timezone(session: AsyncSession, user: User, timezone: str) -> User:
+    """Keeps due dates honest when someone travels — the domain rule says a user
+    who moves zones gets noon in the new one."""
+    if not valid_timezone(timezone):
+        raise AccountError("That isn't a recognised time zone.")
+    user.timezone = timezone
+    await session.commit()
+    return user
+
+
 async def authenticate(session: AsyncSession, email: str, password: str) -> User | None:
     """Returns the user, or None. Never distinguishes unknown-email from wrong-password."""
     result = await session.execute(select(User).where(User.email == normalize_email(email)))
