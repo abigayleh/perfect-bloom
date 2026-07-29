@@ -23,7 +23,7 @@ a real native binary rather than a wrapped website.
 | API | Python 3.12+, FastAPI, JSON only |
 | DB | SQLite in dev, Postgres in prod. SQLAlchemy 2.0 (async) + Alembic. |
 | Package mgmt | `uv` for the API, `npm` for the app |
-| Tests | pytest + pytest-asyncio (API) |
+| Tests | pytest + pytest-asyncio (API); vitest for the app's pure logic only |
 | Lint/format | ruff (API), eslint + tsc (app) |
 
 Alembic is used from the first migration even though dev is SQLite — switching to
@@ -67,7 +67,8 @@ uv run alembic upgrade head
 # App — run from mobile/
 npm install
 npx expo start
-npx tsc --noEmit
+npm run typecheck
+npm test           # vitest, pure logic only — anything native is a manual pass
 ```
 
 ## Core domain rules
@@ -244,6 +245,18 @@ multi-user shared collections, a web version, offline-first sync.
 - **A plant with no watering logged anchors on `created_at`**, labelled
   `anchor: "created"` so the UI can say "not watered yet". That is a real
   timestamp, not an invented schedule.
+- **Reminders are one digest at noon**, never one notification per plant — five
+  buzzes is how people disable notifications entirely. It repeats daily while
+  anything stays overdue, because a plant that dies after one dismissed
+  notification defeats the app.
+- **Reminders are scheduled 14 days ahead and fully replaced on every sync.** A
+  local notification cannot run code when it fires, so days are scheduled
+  assuming nothing gets watered; watering, adding, or removing a plant cancels
+  everything and rebuilds. iOS caps pending notifications at 64, hence the
+  horizon.
+- **The app pushes the device's timezone to `PATCH /api/v1/me` on launch.**
+  Without it, due dates stay pinned to the zone captured at signup while
+  notifications fire in device time — off by a day for anyone who travels.
 - **Known gap: a watering cannot be undone.** The log is append-only by rule, so
   a mis-tap is permanent and skews the history V2 depends on. If this needs
   fixing, the honest option is a `voided_at` column rather than a delete.
@@ -257,6 +270,6 @@ multi-user shared collections, a web version, offline-first sync.
 
 ## Open decisions
 
-Ask before assuming; don't unilaterally resolve these.
-
-- Notification granularity: one digest at noon vs. per-plant notifications.
+None outstanding — V1 is feature-complete. Before a public launch, the two
+known gaps above (`/media` access control, no watering undo) and the PlantNet
+tier question all need answers.

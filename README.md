@@ -38,7 +38,7 @@ uv run ruff check --fix . && uv run ruff format .
 | `POST` | `/api/v1/auth/signup` | — |
 | `POST` | `/api/v1/auth/login` | — |
 | `POST` | `/api/v1/auth/logout` | bearer |
-| `GET` | `/api/v1/me` | bearer |
+| `GET` `PATCH` | `/api/v1/me` | bearer |
 | `POST` | `/api/v1/identify` | bearer |
 | `GET` | `/api/v1/care?scientific_name=…` | bearer |
 | `GET` `POST` | `/api/v1/plants` | bearer |
@@ -55,7 +55,11 @@ cd mobile
 npm install
 npx expo start          # then press "i" for iOS or "a" for Android
 npm run typecheck
+npm test
 ```
+
+Local notifications work in Expo Go on both platforms, so reminders can be tested
+without a development build.
 
 The app finds the API automatically: it reuses the Expo dev server's host, so a
 simulator and a physical phone on the same network both work without editing
