@@ -36,7 +36,8 @@
           "cameraPermission": "Perfect Bloom uses the camera to photograph a plant so it can be identified."
         }
       ],
-      "expo-sqlite"
+      "expo-sqlite",
+      "expo-font"
     ],
     "experiments": {
       "typedRoutes": true

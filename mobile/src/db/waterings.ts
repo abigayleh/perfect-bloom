@@ -44,5 +44,16 @@ export async function lastWateredFor(
   return Object.fromEntries(rows.map((row) => [row.plant_id, row.watered_at]));
 }
 
-// No read-the-whole-history function: nothing displays it yet. The log is still
-// written and never pruned, so V2 diagnosis can add the read when it needs it.
+export type WateringEvent = { id: number; watered_at: string };
+
+/** The append-only log, newest first. Rendered on the plant detail screen. */
+export async function wateringHistory(
+  db: SQLiteDatabase,
+  plantId: number,
+  limit = 50,
+): Promise<WateringEvent[]> {
+  return db.getAllAsync<WateringEvent>(
+    'SELECT id, watered_at FROM watering_events WHERE plant_id = ? ORDER BY watered_at DESC LIMIT ?',
+    [plantId, limit],
+  );
+}

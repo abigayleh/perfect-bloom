@@ -1,113 +1,227 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, Stack, useRouter } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
-import { ActivityIndicator, FlatList, Image, Pressable, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { plantName, type Plant } from '@/api/types';
-import { listPlants } from '@/db/plants';
-import { DueText } from '@/components/DueText';
 import { ErrorText } from '@/components/ErrorText';
+import { HeroPlant } from '@/components/HeroPlant';
+import { QueuePill } from '@/components/QueuePill';
+import { listPlants } from '@/db/plants';
 import { useReminders } from '@/hooks/useReminders';
 import { useWaterPlant } from '@/hooks/useWaterPlant';
-import { colors, styles } from '@/theme';
+import { colors, fonts, styles as t } from '@/theme';
 
-function PlantRow({
-  plant,
-  onPress,
-  onWater,
-}: {
-  plant: Plant;
-  onPress: () => void;
-  onWater: () => void;
-}) {
-  return (
-    <Pressable style={[styles.card, { flexDirection: 'row', gap: 12 }]} onPress={onPress}>
-      {plant.image_uri ? (
-        <Image source={{ uri: plant.image_uri }} style={styles.thumbnail} />
-      ) : (
-        <View style={[styles.thumbnail, { backgroundColor: colors.line }]} />
-      )}
-      <View style={{ flex: 1, justifyContent: 'center' }}>
-        <Text style={styles.label}>{plantName(plant)}</Text>
-        {plant.scientific_name ? (
-          <Text style={[styles.muted, { fontStyle: 'italic' }]}>{plant.scientific_name}</Text>
-        ) : null}
-        <DueText plant={plant} />
-      </View>
-      {plant.is_due && (
-        <Pressable style={styles.waterChip} onPress={onWater} hitSlop={8}>
-          <Text style={styles.waterChipText}>Water</Text>
-        </Pressable>
-      )}
-    </Pressable>
-  );
+/** "Thu 30 July · noon" — the reminder hour is fixed, so it can be stated. */
+function today(): string {
+  const now = new Date();
+  const day = now.toLocaleDateString(undefined, { weekday: 'short' });
+  const date = now.toLocaleDateString(undefined, { day: 'numeric', month: 'long' });
+  return `${day} ${date} · noon`;
 }
 
-export default function CollectionScreen() {
+function greeting(due: number, total: number): string {
+  if (total === 0) return 'Nothing planted yet.';
+  if (due === 0) return "Everyone's had a drink.";
+  return due === 1 ? 'One wants water.' : `${due} want water.`;
+}
+
+/**
+ * The Garden: the plant that needs water most fills the top of the screen, and
+ * everything else queues behind it. Answers "who needs water?" before you read.
+ */
+export default function GardenScreen() {
   const db = useSQLiteContext();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const query = useQuery({ queryKey: ['plants'], queryFn: () => listPlants(db) });
   const water = useWaterPlant();
   const reminders = useReminders(query.data);
 
-  // Due first, then by how soon. Plants with no schedule sink to the bottom.
-  const plants = [...(query.data ?? [])].sort((a, b) => {
-    const rank = (plant: Plant) => (plant.days_until_due ?? Number.POSITIVE_INFINITY);
-    return rank(a) - rank(b);
-  });
+  const plants = query.data ?? [];
+  const rank = (p: Plant) => p.days_until_due ?? Number.POSITIVE_INFINITY;
+  const thirsty = plants.filter((p) => p.is_due).sort((a, b) => rank(a) - rank(b));
+  const [hero, ...queue] = thirsty;
+  const resting = plants.filter((p) => !p.is_due).sort((a, b) => rank(a) - rank(b));
+
+  const open = (id: number) => router.push({ pathname: '/plant/[id]', params: { id } });
 
   return (
-    <View style={styles.screen}>
-      <Stack.Screen options={{ title: 'Your plants' }} />
-
-      <FlatList
-        data={plants}
-        keyExtractor={(plant) => String(plant.id)}
-        contentContainerStyle={styles.content}
-        refreshing={query.isRefetching}
-        onRefresh={query.refetch}
-        renderItem={({ item }) => (
-          <PlantRow
-            plant={item}
-            onPress={() => router.push({ pathname: '/plant/[id]', params: { id: item.id } })}
-            onWater={() => water.mutate(item.id)}
-          />
-        )}
-        ListHeaderComponent={<ErrorText message={query.error?.message ?? water.error?.message} />}
-        ListEmptyComponent={
-          query.isPending ? (
-            <ActivityIndicator color={colors.green} />
-          ) : (
-            <Text style={styles.muted}>
-              No plants yet. Identify one from a photo, or add it by name.
-            </Text>
-          )
+    <View style={t.screenWarm}>
+      <Stack.Screen options={{ headerShown: false }} />
+      <ScrollView
+        contentContainerStyle={{ paddingTop: insets.top + 8, paddingBottom: 48 }}
+        refreshControl={
+          <RefreshControl refreshing={query.isRefetching} onRefresh={query.refetch} />
         }
-        ListFooterComponent={
-          <View style={{ gap: 12, marginTop: 20 }}>
-            {reminders.granted === false && (
-              <Pressable style={styles.card} onPress={reminders.enable}>
-                <Text style={styles.label}>Turn on watering reminders</Text>
-                <Text style={styles.muted}>
-                  One notification at noon on the days something needs water.
+      >
+        <View style={s.gutter}>
+          <View style={s.topRow}>
+            <Text style={[t.eyebrow, s.dateLabel]}>{today()}</Text>
+            {plants.length > 0 && (
+              <View style={s.chip}>
+                <View style={s.chipDot} />
+                <Text style={s.chipText}>
+                  {thirsty.length > 0 ? `${thirsty.length} thirsty` : 'All watered'}
                 </Text>
-              </Pressable>
+              </View>
             )}
-
-            <Link href="/identify" asChild>
-              <Pressable style={styles.button}>
-                <Text style={styles.buttonText}>Identify a plant</Text>
-              </Pressable>
-            </Link>
-            <Link href="/add" asChild>
-              <Pressable style={styles.secondaryButton}>
-                <Text style={styles.secondaryButtonText}>Add a plant by name</Text>
-              </Pressable>
-            </Link>
           </View>
-        }
-      />
+
+          <Text style={[t.display, s.greeting]}>
+            {greeting(thirsty.length, plants.length)}
+          </Text>
+
+          <ErrorText message={query.error?.message ?? water.error?.message} />
+        </View>
+
+        {query.isPending && <ActivityIndicator color={colors.leaf} style={s.spinner} />}
+
+        {hero && (
+          <View style={s.heroGutter}>
+            <HeroPlant
+              plant={hero}
+              watering={water.isPending}
+              onWater={() => water.mutate(hero.id)}
+              onOpen={() => open(hero.id)}
+            />
+          </View>
+        )}
+
+        {!query.isPending && plants.length > 0 && thirsty.length === 0 && (
+          <View style={s.done}>
+            <View style={s.doneMark}>
+              <Text style={s.doneTick}>✓</Text>
+            </View>
+            <Text style={[t.title, s.centerText]}>Everyone&apos;s had a drink.</Text>
+            {resting.length > 0 && (
+              <Text style={[t.bodyMuted, s.centerText, s.doneNote]}>
+                Next up is {plantName(resting[0])}
+                {resting[0].days_until_due !== null
+                  ? `, ${resting[0].days_until_due} days from now.`
+                  : '.'}
+              </Text>
+            )}
+          </View>
+        )}
+
+        {queue.length > 0 && (
+          <View style={s.section}>
+            <Text style={[t.eyebrow, s.sectionLabel]}>
+              {queue.length === 1 ? 'Then this one' : `Then these ${queue.length}`}
+            </Text>
+            <View style={s.stack}>
+              {queue.map((plant) => (
+                <QueuePill key={plant.id} plant={plant} onPress={() => open(plant.id)} />
+              ))}
+            </View>
+          </View>
+        )}
+
+        {resting.length > 0 && (
+          <View style={s.section}>
+            <Text style={[t.eyebrow, s.sectionLabel]}>Resting</Text>
+            <View style={s.stack}>
+              {resting.map((plant) => (
+                <QueuePill key={plant.id} plant={plant} onPress={() => open(plant.id)} />
+              ))}
+            </View>
+          </View>
+        )}
+
+        {!query.isPending && plants.length === 0 && (
+          <View style={s.gutter}>
+            <Text style={t.bodyMuted}>
+              Photograph a plant to identify it, or add one by name if you already know it.
+            </Text>
+          </View>
+        )}
+
+        <View style={[s.section, s.stack]}>
+          {reminders.granted === false && (
+            <Pressable style={t.panel} onPress={reminders.enable}>
+              <Text style={t.name}>Turn on watering reminders</Text>
+              <Text style={[t.bodyMuted, s.hint]}>
+                One notification at noon on the days something needs water.
+              </Text>
+            </Pressable>
+          )}
+
+          <Link href="/identify" asChild>
+            <Pressable style={t.button}>
+              <Text style={t.buttonText}>Identify a plant</Text>
+            </Pressable>
+          </Link>
+          <Link href="/add" asChild>
+            <Pressable style={t.dashedButton}>
+              <Text style={t.ghostButtonText}>+  Add a plant manually</Text>
+            </Pressable>
+          </Link>
+        </View>
+      </ScrollView>
     </View>
   );
 }
+
+const s = StyleSheet.create({
+  gutter: { paddingHorizontal: 24 },
+  heroGutter: { paddingHorizontal: 20 },
+  topRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  dateLabel: { color: '#6F7461' },
+  greeting: { marginTop: 14, marginBottom: 20 },
+  spinner: { marginTop: 24 },
+  section: { paddingHorizontal: 24, paddingTop: 28 },
+  sectionLabel: { marginBottom: 14, color: '#6F7461' },
+  stack: { gap: 10 },
+  hint: { marginTop: 4 },
+  centerText: { textAlign: 'center' },
+  doneNote: { marginTop: 9 },
+
+  chip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 5,
+    paddingLeft: 8,
+    paddingRight: 11,
+    borderRadius: 999,
+    backgroundColor: colors.streakBg,
+  },
+  chipDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.streakDot },
+  chipText: {
+    fontFamily: fonts.mono,
+    fontSize: 10,
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+    color: colors.unknownInk,
+  },
+
+  done: {
+    marginHorizontal: 20,
+    paddingVertical: 46,
+    paddingHorizontal: 26,
+    borderRadius: 30,
+    backgroundColor: colors.doneBg,
+    alignItems: 'center',
+  },
+  doneMark: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: colors.doneRing,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  doneTick: { fontSize: 38, color: '#F6F7E7' },
+});

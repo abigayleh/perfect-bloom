@@ -1,4 +1,16 @@
+import { IBMPlexMono_400Regular, IBMPlexMono_500Medium } from '@expo-google-fonts/ibm-plex-mono';
+import {
+  IBMPlexSans_400Regular,
+  IBMPlexSans_500Medium,
+  IBMPlexSans_600SemiBold,
+} from '@expo-google-fonts/ibm-plex-sans';
+import {
+  Newsreader_400Regular,
+  Newsreader_400Regular_Italic,
+  Newsreader_500Medium,
+} from '@expo-google-fonts/newsreader';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { SQLiteProvider } from 'expo-sqlite';
 import { StatusBar } from 'expo-status-bar';
@@ -17,16 +29,28 @@ configureNotificationHandler();
 function Loading() {
   return (
     <View style={styles.centered}>
-      <ActivityIndicator color={colors.green} />
+      <ActivityIndicator color={colors.leaf} />
     </View>
   );
 }
 
 /**
- * No auth gate any more: the collection lives on this device, so there is nothing
- * to sign in to. The only thing worth waiting for is the schema migration.
+ * No auth gate: the collection lives on this device. Two things are worth waiting
+ * for — the schema migration, and the typefaces, since the design leans on
+ * Newsreader hard enough that a fallback flash would read as a bug.
  */
 export default function RootLayout() {
+  const [fontsLoaded] = useFonts({
+    Newsreader_400Regular,
+    Newsreader_400Regular_Italic,
+    Newsreader_500Medium,
+    IBMPlexSans_400Regular,
+    IBMPlexSans_500Medium,
+    IBMPlexSans_600SemiBold,
+    IBMPlexMono_400Regular,
+    IBMPlexMono_500Medium,
+  });
+
   return (
     <SafeAreaProvider>
       {/* useSuspense so no screen can query a database that has not migrated yet. */}
@@ -34,7 +58,7 @@ export default function RootLayout() {
         <SQLiteProvider databaseName={DATABASE_NAME} onInit={migrateDbIfNeeded} useSuspense>
           <QueryClientProvider client={queryClient}>
             <StatusBar style="dark" />
-            <Stack screenOptions={{ headerShown: false }} />
+            {fontsLoaded ? <Stack screenOptions={{ headerShown: false }} /> : <Loading />}
           </QueryClientProvider>
         </SQLiteProvider>
       </Suspense>
